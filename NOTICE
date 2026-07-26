@@ -1,10 +1,16 @@
 ttf2woff2-GUI
 Copyright 2026 ttf2woff2-GUI contributors
 
-This product uses the ttf2woff2 crate:
-https://github.com/0x6b/ttf2woff2
-Licensed under MIT OR Apache-2.0.
+This product uses Google WOFF2:
+https://github.com/google/woff2
+Copyright 2014 Google Inc.
+Licensed under the MIT License.
 
-The CI test suite downloads Warpnine Sans from the pinned upstream release.
-That font is licensed under the SIL Open Font License and is not shipped in
-application packages.
+Google WOFF2 includes Brotli:
+https://github.com/google/brotli
+Copyright 2013 Google Inc.
+Licensed under the MIT License.
+
+The CI test suite downloads Abel from a pinned google/fonts commit. Abel is
+licensed under the SIL Open Font License and is not shipped in application
+packages.

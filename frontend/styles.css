@@ -325,9 +325,9 @@ h1 {
 .queue-head,
 .queue-row {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) 100px 100px;
+  grid-template-columns: minmax(280px, 1fr) 90px 100px 90px 58px;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .queue-head {
@@ -428,6 +428,29 @@ h1 {
   background: #fef3f2;
 }
 
+.remove-item {
+  justify-self: start;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 7px;
+  color: #b42318;
+  background: #fff1f0;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.remove-item:hover:not(:disabled) {
+  background: #fee4e2;
+}
+
+.remove-item:disabled {
+  color: #98a2b3;
+  background: #f2f4f7;
+  cursor: not-allowed;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 20px 16px 30px;
@@ -457,11 +480,13 @@ h1 {
 
   .queue-head,
   .queue-row {
-    grid-template-columns: minmax(190px, 1fr) 80px;
+    grid-template-columns: minmax(190px, 1fr) 82px 54px;
   }
 
-  .queue-head span:nth-child(2),
-  .queue-row .size {
+  .queue-head .input-size,
+  .queue-head .output-size,
+  .queue-row .input-size,
+  .queue-row .output-size {
     display: none;
   }
 }

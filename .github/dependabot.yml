@@ -1,5 +1,15 @@
 version: 2
 updates:
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: upstream
+
   - package-ecosystem: cargo
     directory: /
     schedule:

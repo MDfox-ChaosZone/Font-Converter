@@ -4,8 +4,8 @@
 
 ## 简体中文
 
-`ttf2woff2-GUI` 是基于 Tauri 2 和 Leptos 的跨平台桌面字体转换器。界面、文件处理和转换流程均使用 Rust 实现，转换核心来自纯 Rust 的
-[`0x6b/ttf2woff2`](https://github.com/0x6b/ttf2woff2)。
+`ttf2woff2-GUI` 是基于 Tauri 2 和 Leptos 的跨平台桌面字体转换器。界面、文件处理和转换流程均使用 Rust 实现，转换核心采用 Google 官方
+[`google/woff2`](https://github.com/google/woff2) C++ 参考实现及其固定版本的 Brotli 子模块。
 
 ### 功能
 
@@ -14,11 +14,12 @@
 - 递归扫描子目录，不跟随目录符号链接。
 - 在源字体旁生成同名 `.woff2`，绝不覆盖已有文件。
 - 顺序后台转换、逐项进度、错误隔离和批次取消。
+- 任务状态实时更新，转换完成后显示输入与输出文件大小，并可逐项移除队列条目。
 - 默认使用 Brotli 质量 11 和单线程编码，优先获得最小且可复现的输出。
 - 简体中文/英文界面，语言选择自动保存。
 - Windows x64、Linux x64、macOS Intel 和 Apple Silicon 构建。
 
-上游编码器目前只支持带 TrueType outlines 的 TTF，不支持 OTF/CFF、WOFF1 或反向转换。
+应用首版只接收带 TrueType outlines 的 `.ttf`，不提供 OTF/CFF、WOFF1 或反向转换。
 
 ### 开发环境
 
@@ -36,6 +37,7 @@ Tauri CLI 2
 rustup target add wasm32-unknown-unknown
 cargo install --locked trunk
 cargo install --locked tauri-cli
+git submodule update --init --recursive
 ```
 
 各平台还需要：
@@ -60,23 +62,28 @@ cargo check -p ttf2woff2-gui-frontend --target wasm32-unknown-unknown
 trunk build --config frontend/Trunk.toml --release
 ```
 
-可通过 `TTF2WOFF2_TEST_FONT=/path/to/font.ttf` 启用真实字体的确定性转换测试。CI 使用上游 `v0.13.2`
-中带 OFL 许可的 Warpnine Sans fixture。
+可通过 `TTF2WOFF2_TEST_FONT=/path/to/font.ttf` 启用真实字体的确定性转换测试。CI 从固定的
+`google/fonts` 提交下载带 OFL 许可的 Abel 测试字体。
 
 ### 上游更新
 
-后端的 `src-tauri/src/converter.rs` 是唯一直接使用 `ttf2woff2` API 的文件。Dependabot 每日检查 Cargo
-正式版本并创建更新 PR；合并前需通过真实字体测试、WebAssembly 构建和四种桌面目标构建。
+上游源码以 Git submodule 固定在 `vendor/woff2`。`src-tauri/native/woff2_wrapper.cc` 是唯一直接调用
+Google C++ API 的文件，`src-tauri/src/converter.rs` 只依赖稳定的内部 C ABI。Dependabot 每日检查
+submodule 更新；合并前需通过真实字体测试、WebAssembly 构建和四种桌面目标构建。
 
 手动更新时：
 
 ```bash
-# 先修改 src-tauri/Cargo.toml 中的精确版本，然后更新锁文件
-cargo update -p ttf2woff2 --precise <version>
+git submodule update --init --recursive
+git -C vendor/woff2 fetch origin
+git -C vendor/woff2 checkout <需要验证的提交>
+git -C vendor/woff2 submodule update --init --recursive
+cargo test -p ttf2woff2-gui
 ```
 
-如果升级到新版本，还需同步修改 `src-tauri/Cargo.toml` 中的精确版本以及 CI fixture 的版本标签。
-编码器 API 如果发生变化，只需适配 `src-tauri/src/converter.rs`，GUI 和批处理层不直接依赖上游类型。
+确认四平台 CI 均通过后，提交新的 submodule 指针。若上游 API 发生变化，只需适配
+`src-tauri/native/woff2_wrapper.cc`；GUI、扫描器和批处理层不直接依赖上游类型。普通克隆必须使用
+`git clone --recurse-submodules`，已有克隆则运行上述初始化命令。
 
 ### 编码参数
 
@@ -105,8 +112,9 @@ cargo update -p ttf2woff2 --precise <version>
 ## English
 
 `ttf2woff2-GUI` is a cross-platform Tauri 2 + Leptos desktop application that converts TrueType
-fonts to WOFF2. The UI, filesystem workflow, and conversion orchestration are written in Rust. It
-uses the pure-Rust [`0x6b/ttf2woff2`](https://github.com/0x6b/ttf2woff2) encoder.
+fonts to WOFF2. The UI, filesystem workflow, and conversion orchestration are written in Rust. The
+encoder is Google's official C++ [`google/woff2`](https://github.com/google/woff2) reference
+implementation, pinned with its Brotli dependency as a Git submodule.
 
 Drag files or recursively scanned folders into the application, review the queue, then start a safe
 background conversion. Outputs are written beside their source fonts and existing WOFF2 files are
@@ -118,7 +126,6 @@ release, and signing commands.
 
 This project is available under either the MIT License or the Apache License 2.0.
 
-The upstream `ttf2woff2` crate is copyright its contributors and is also distributed under
-`MIT OR Apache-2.0`. The Warpnine Sans fixture downloaded only during CI is covered by the SIL Open
-Font License in the upstream repository. No upstream fixture is redistributed in application
-packages.
+Google WOFF2 and Brotli are distributed under the MIT License; their source and license files are
+kept in `vendor/woff2`. The Abel fixture downloaded only during CI is covered by the SIL Open Font
+License in `google/fonts`. No test font is redistributed in application packages.

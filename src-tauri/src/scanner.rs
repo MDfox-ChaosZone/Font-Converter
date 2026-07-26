@@ -69,12 +69,15 @@ fn collect_file(path: &Path, seen: &mut HashSet<PathBuf>, result: &mut ScanResul
 
     let output = canonical.with_extension("woff2");
     let output_exists = output.exists();
+    let output_bytes = output_exists
+        .then(|| fs::metadata(&output).ok().map(|metadata| metadata.len()))
+        .flatten();
     result.items.push(QueueItem {
         id: Uuid::new_v4().to_string(),
         input_path: canonical.to_string_lossy().into_owned(),
         output_path: output.to_string_lossy().into_owned(),
         input_bytes: fs::metadata(&canonical).ok().map(|metadata| metadata.len()),
-        output_bytes: None,
+        output_bytes,
         status: if output_exists {
             ItemStatus::Skipped
         } else {
@@ -149,5 +152,6 @@ mod tests {
         let result = collect(&[font.to_string_lossy().into_owned()]);
 
         assert_eq!(result.items[0].status, ItemStatus::Skipped);
+        assert_eq!(result.items[0].output_bytes, Some(8));
     }
 }

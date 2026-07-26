@@ -4473,27 +4473,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
-name = "ttf2woff2"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d34bd8adc70431694a80b21870d616ba660257a737fa4cd875d571dd01ba0a3"
-dependencies = [
- "brotli",
- "byteorder",
- "thiserror 2.0.19",
-]
-
-[[package]]
 name = "ttf2woff2-gui"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tempfile",
- "ttf2woff2",
  "ttf2woff2-gui-shared",
  "uuid",
  "walkdir",

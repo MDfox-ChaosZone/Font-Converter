@@ -103,6 +103,9 @@ fn run_batch(app: &AppHandle, batch_id: &str, items: &mut [QueueItem], cancellat
             }
             Err(ConversionError::AlreadyExists) => {
                 items[index].status = ItemStatus::Skipped;
+                items[index].output_bytes = std::fs::metadata(&expected_output)
+                    .ok()
+                    .map(|metadata| metadata.len());
                 items[index].message = Some("Output file already exists".into());
             }
             Err(ConversionError::Failed(message)) => {

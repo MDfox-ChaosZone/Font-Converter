@@ -6,6 +6,21 @@ use std::{
 
 use tempfile::Builder;
 
+const BROTLI_QUALITY: i32 = 11;
+const ALLOW_TRANSFORMS: bool = true;
+
+unsafe extern "C" {
+    fn ttf2woff2_google_max_compressed_size(input: *const u8, input_length: usize) -> usize;
+    fn ttf2woff2_google_convert(
+        input: *const u8,
+        input_length: usize,
+        output: *mut u8,
+        output_length: *mut usize,
+        brotli_quality: i32,
+        allow_transforms: i32,
+    ) -> i32;
+}
+
 #[derive(Debug)]
 pub struct ConversionOutput {
     pub input_bytes: u64,
@@ -18,15 +33,14 @@ pub enum ConversionError {
     Failed(String),
 }
 
-/// The only module that knows about the upstream encoder API.
+/// The only Rust module that knows about the Google WOFF2 encoder ABI.
 pub fn convert(input: &Path, output: &Path) -> Result<ConversionOutput, ConversionError> {
     if output.exists() {
         return Err(ConversionError::AlreadyExists);
     }
 
     let input_data = fs::read(input).map_err(failed)?;
-    let encoded = ttf2woff2::encode(&input_data, ttf2woff2::BrotliQuality::from(11))
-        .map_err(|error| ConversionError::Failed(error.to_string()))?;
+    let encoded = encode(&input_data)?;
     let parent = output
         .parent()
         .ok_or_else(|| ConversionError::Failed("Output path has no parent directory".into()))?;
@@ -51,6 +65,43 @@ pub fn convert(input: &Path, output: &Path) -> Result<ConversionOutput, Conversi
         Err(_error) if output.exists() => Err(ConversionError::AlreadyExists),
         Err(error) => Err(ConversionError::Failed(error.error.to_string())),
     }
+}
+
+fn encode(input: &[u8]) -> Result<Vec<u8>, ConversionError> {
+    if input.is_empty() {
+        return Err(ConversionError::Failed("Input font is empty".into()));
+    }
+
+    // SAFETY: `input` remains alive for the call and exposes exactly `input.len()` bytes.
+    let capacity = unsafe { ttf2woff2_google_max_compressed_size(input.as_ptr(), input.len()) };
+    if capacity == 0 || capacity > isize::MAX as usize {
+        return Err(ConversionError::Failed(
+            "Google WOFF2 could not determine a safe output size".into(),
+        ));
+    }
+
+    let mut output = vec![0_u8; capacity];
+    let mut output_length = capacity;
+    // SAFETY: both buffers remain alive for the call, `output` has `capacity` writable
+    // bytes, and the C++ wrapper catches exceptions before they can cross the ABI.
+    let succeeded = unsafe {
+        ttf2woff2_google_convert(
+            input.as_ptr(),
+            input.len(),
+            output.as_mut_ptr(),
+            &mut output_length,
+            BROTLI_QUALITY,
+            i32::from(ALLOW_TRANSFORMS),
+        )
+    };
+    if succeeded == 0 || output_length > capacity {
+        return Err(ConversionError::Failed(
+            "Google WOFF2 rejected the font or failed to encode it".into(),
+        ));
+    }
+
+    output.truncate(output_length);
+    Ok(output)
 }
 
 fn failed(error: io::Error) -> ConversionError {

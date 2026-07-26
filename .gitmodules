@@ -1,0 +1,3 @@
+[submodule "vendor/woff2"]
+	path = vendor/woff2
+	url = https://github.com/google/woff2.git

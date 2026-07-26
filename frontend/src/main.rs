@@ -120,6 +120,13 @@ fn App() -> impl IntoView {
             summary.set(BatchSummary::default());
         }
     };
+    let remove_item = Callback::new(move |id: String| {
+        if active_batch.get_untracked().is_some() {
+            return;
+        }
+        items.update(|items| items.retain(|item| item.id != id));
+        summary.set(BatchSummary::from_items(&items.get_untracked()));
+    });
     let set_locale = move |next: Locale| {
         locale.set(next);
         next.save();
@@ -235,13 +242,20 @@ fn App() -> impl IntoView {
                     <div class="queue-list">
                         <div class="queue-head">
                             <span>{move || locale.get().t(Message::File)}</span>
-                            <span>{move || locale.get().t(Message::Size)}</span>
+                            <span class="input-size">{move || locale.get().t(Message::InputSize)}</span>
+                            <span class="output-size">{move || locale.get().t(Message::OutputSize)}</span>
                             <span>{move || locale.get().t(Message::Status)}</span>
+                            <span>{move || locale.get().t(Message::Actions)}</span>
                         </div>
                         <For
                             each=move || items.get()
-                            key=|item| item.id.clone()
-                            children=move |item| view! { <QueueRow locale item /> }
+                            key=|item| format!(
+                                "{}:{:?}:{:?}:{:?}",
+                                item.id, item.status, item.output_bytes, item.message
+                            )
+                            children=move |item| view! {
+                                <QueueRow locale item active_batch on_remove=remove_item />
+                            }
                         />
                     </div>
                 </Show>
@@ -251,11 +265,17 @@ fn App() -> impl IntoView {
 }
 
 #[component]
-fn QueueRow(locale: RwSignal<Locale>, item: QueueItem) -> impl IntoView {
+fn QueueRow(
+    locale: RwSignal<Locale>,
+    item: QueueItem,
+    active_batch: RwSignal<Option<String>>,
+    on_remove: Callback<String>,
+) -> impl IntoView {
     let status_class = format!("status {}", status_class(&item.status));
     let input_name = file_name(&item.input_path);
     let output_name = file_name(&item.output_path);
     let status = item.status.clone();
+    let item_id = item.id.clone();
     view! {
         <article class="queue-row">
             <div class="file-cell">
@@ -268,8 +288,18 @@ fn QueueRow(locale: RwSignal<Locale>, item: QueueItem) -> impl IntoView {
                     {item.message.map(|message| view! { <small>{message}</small> })}
                 </div>
             </div>
-            <span class="size">{format_bytes(item.input_bytes)}</span>
+            <span class="size input-size">{format_bytes(item.input_bytes)}</span>
+            <span class="size output-size">{format_bytes(item.output_bytes)}</span>
             <span class=status_class>{move || status_label(locale.get(), &status)}</span>
+            <button
+                class="remove-item"
+                type="button"
+                disabled=move || active_batch.get().is_some()
+                title=move || locale.get().t(Message::Remove)
+                on:click=move |_| on_remove.run(item_id.clone())
+            >
+                {move || locale.get().t(Message::Remove)}
+            </button>
         </article>
     }
 }

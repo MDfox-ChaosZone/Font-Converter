@@ -13,6 +13,7 @@ name = "ttf2woff2-gui"
 path = "src/main.rs"
 
 [build-dependencies]
+cc = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
@@ -22,7 +23,6 @@ ttf2woff2-gui-shared.workspace = true
 tauri = { version = "2.11", features = [] }
 tauri-plugin-dialog = "2.7"
 tempfile = "3"
-ttf2woff2 = { version = "=0.13.2", default-features = false }
 uuid = { version = "1", features = ["v4"] }
 walkdir = "2"
 
