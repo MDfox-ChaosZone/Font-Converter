@@ -8,7 +8,7 @@ use crate::{batch::BatchManager, scanner};
 pub fn pick_files(app: AppHandle) -> Vec<String> {
     app.dialog()
         .file()
-        .add_filter("TrueType fonts", &["ttf"])
+        .add_filter("Supported fonts", &["ttf", "otf", "woff2"])
         .blocking_pick_files()
         .unwrap_or_default()
         .into_iter()

@@ -38,6 +38,7 @@ pub enum Message {
     NoFonts,
     CommandFailed,
     SafeOutput,
+    SupportedFormats,
     Language,
 }
 
@@ -72,16 +73,16 @@ impl Locale {
 
     pub fn t(self, message: Message) -> &'static str {
         match (self, message) {
-            (Self::ZhCn, Message::Tagline) => "快速、安全地将 TrueType 字体转换为 WOFF2",
+            (Self::ZhCn, Message::Tagline) => "快速、安全地转换 TTF、OTF 与 WOFF2 字体",
             (Self::ZhCn, Message::DropTitle) => "拖放字体或文件夹到这里",
-            (Self::ZhCn, Message::DropHint) => "递归扫描 .ttf；输出保存在源文件旁",
+            (Self::ZhCn, Message::DropHint) => "递归扫描 .ttf、.otf 和 .woff2；自动识别转换方向",
             (Self::ZhCn, Message::SelectFiles) => "选择文件",
             (Self::ZhCn, Message::SelectFolder) => "选择文件夹",
             (Self::ZhCn, Message::Start) => "开始转换",
             (Self::ZhCn, Message::Cancel) => "取消",
             (Self::ZhCn, Message::ClearCompleted) => "清除已完成",
             (Self::ZhCn, Message::EmptyTitle) => "转换队列为空",
-            (Self::ZhCn, Message::EmptyHint) => "添加一个或多个 TTF 文件开始使用",
+            (Self::ZhCn, Message::EmptyHint) => "添加 TTF、OTF 或 WOFF2 文件开始使用",
             (Self::ZhCn, Message::File) => "源文件",
             (Self::ZhCn, Message::Output) => "输出",
             (Self::ZhCn, Message::InputSize) => "原始大小",
@@ -97,21 +98,24 @@ impl Locale {
             (Self::ZhCn, Message::Cancelled) => "已取消",
             (Self::ZhCn, Message::Total) => "总计",
             (Self::ZhCn, Message::Warnings) => "扫描提示",
-            (Self::ZhCn, Message::NoFonts) => "没有发现可转换的 TTF 文件",
+            (Self::ZhCn, Message::NoFonts) => "没有发现可转换的字体文件",
             (Self::ZhCn, Message::CommandFailed) => "操作失败",
-            (Self::ZhCn, Message::SafeOutput) => "不会覆盖已有 WOFF2 文件",
+            (Self::ZhCn, Message::SafeOutput) => "输出保存在源文件旁，绝不覆盖已有文件",
+            (Self::ZhCn, Message::SupportedFormats) => "支持的转换格式",
             (Self::ZhCn, Message::Language) => "语言",
 
-            (Self::En, Message::Tagline) => "Fast, safe TrueType to WOFF2 conversion",
+            (Self::En, Message::Tagline) => "Fast, safe TTF, OTF, and WOFF2 conversion",
             (Self::En, Message::DropTitle) => "Drop fonts or folders here",
-            (Self::En, Message::DropHint) => "Scans .ttf recursively; saves beside each source",
+            (Self::En, Message::DropHint) => {
+                "Scans .ttf, .otf, and .woff2 recursively; detects direction automatically"
+            }
             (Self::En, Message::SelectFiles) => "Select files",
             (Self::En, Message::SelectFolder) => "Select folder",
             (Self::En, Message::Start) => "Start conversion",
             (Self::En, Message::Cancel) => "Cancel",
             (Self::En, Message::ClearCompleted) => "Clear completed",
             (Self::En, Message::EmptyTitle) => "The conversion queue is empty",
-            (Self::En, Message::EmptyHint) => "Add one or more TTF files to get started",
+            (Self::En, Message::EmptyHint) => "Add TTF, OTF, or WOFF2 files to get started",
             (Self::En, Message::File) => "Source",
             (Self::En, Message::Output) => "Output",
             (Self::En, Message::InputSize) => "Input size",
@@ -127,9 +131,12 @@ impl Locale {
             (Self::En, Message::Cancelled) => "Cancelled",
             (Self::En, Message::Total) => "Total",
             (Self::En, Message::Warnings) => "Scan notices",
-            (Self::En, Message::NoFonts) => "No convertible TTF files were found",
+            (Self::En, Message::NoFonts) => "No convertible font files were found",
             (Self::En, Message::CommandFailed) => "Operation failed",
-            (Self::En, Message::SafeOutput) => "Existing WOFF2 files are never overwritten",
+            (Self::En, Message::SafeOutput) => {
+                "Outputs are saved beside sources; existing files are never overwritten"
+            }
+            (Self::En, Message::SupportedFormats) => "Supported conversion formats",
             (Self::En, Message::Language) => "Language",
         }
     }

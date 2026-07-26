@@ -9,17 +9,20 @@
 
 ### 功能
 
-- 拖放一个或多个 TTF 文件或文件夹。
+- 拖放一个或多个 TTF、OTF、WOFF2 文件或文件夹。
 - 原生文件多选和文件夹选择对话框。
 - 递归扫描子目录，不跟随目录符号链接。
-- 在源字体旁生成同名 `.woff2`，绝不覆盖已有文件。
+- 自动执行 TTF→WOFF2、OTF→WOFF2、WOFF2→TTF 或 WOFF2→OTF。
+- 在源字体旁生成转换结果，绝不覆盖已有文件。
 - 顺序后台转换、逐项进度、错误隔离和批次取消。
 - 任务状态实时更新，转换完成后显示输入与输出文件大小，并可逐项移除队列条目。
 - 默认使用 Brotli 质量 11 和单线程编码，优先获得最小且可复现的输出。
 - 简体中文/英文界面，语言选择自动保存。
 - Windows x64、Linux x64、macOS Intel 和 Apple Silicon 构建。
 
-应用首版只接收带 TrueType outlines 的 `.ttf`，不提供 OTF/CFF、WOFF1 或反向转换。
+WOFF2 解码时会读取文件头中的 SFNT flavor：TrueType 输出 `.ttf`，CFF/OpenType 输出 `.otf`。
+WOFF2 不保存原始文件扩展名，因此带 TrueType outlines、但原先使用 `.otf` 扩展名的字体会恢复为
+`.ttf`。暂不支持 WOFF1 和字体集合。
 
 ### 开发环境
 
@@ -62,8 +65,9 @@ cargo check -p ttf2woff2-gui-frontend --target wasm32-unknown-unknown
 trunk build --config frontend/Trunk.toml --release
 ```
 
-可通过 `TTF2WOFF2_TEST_FONT=/path/to/font.ttf` 启用真实字体的确定性转换测试。CI 从固定的
-`google/fonts` 提交下载带 OFL 许可的 Abel 测试字体。
+可通过 `TTF2WOFF2_TEST_FONT=/path/to/font.ttf` 和
+`TTF2WOFF2_TEST_OTF=/path/to/font.otf` 启用真实字体的双向转换测试。CI 从固定提交下载带
+OFL 许可的 Abel TTF 和 Source Code Pro OTF 测试字体。
 
 ### 上游更新
 
@@ -87,10 +91,10 @@ cargo test -p ttf2woff2-gui
 
 ### 编码参数
 
-当前版本固定使用 Brotli 质量 `11`、`glyf/loca` 转换和单线程压缩：
+编码到 WOFF2 时固定使用 Brotli 质量 `11`、适用时启用 `glyf/loca` 转换，并采用单线程压缩：
 
 - 质量 `11`：上游支持范围为 `0–11`；数值越高，通常输出越小，但编码耗时越长。
-- `glyf/loca` 转换：按 WOFF2 规范重组 TrueType 字形表，通常能进一步缩小文件。
+- `glyf/loca` 转换：按 WOFF2 规范重组 TrueType 字形表；CFF/OTF 没有这些表，会自动跳过。
 - 单线程：保证相同输入和版本产生确定性输出；任务队列也会逐个处理字体，控制内存占用。
 
 首版暂不在界面中暴露这些高级参数，以保持输出行为稳定。
@@ -111,21 +115,22 @@ cargo test -p ttf2woff2-gui
 
 ## English
 
-`ttf2woff2-GUI` is a cross-platform Tauri 2 + Leptos desktop application that converts TrueType
-fonts to WOFF2. The UI, filesystem workflow, and conversion orchestration are written in Rust. The
+`ttf2woff2-GUI` is a cross-platform Tauri 2 + Leptos desktop application that converts TTF and OTF
+fonts to WOFF2 and decompresses WOFF2 back to its TrueType or CFF/OpenType SFNT form. The UI,
+filesystem workflow, and conversion orchestration are written in Rust. The
 encoder is Google's official C++ [`google/woff2`](https://github.com/google/woff2) reference
 implementation, pinned with its Brotli dependency as a Git submodule.
 
-Drag files or recursively scanned folders into the application, review the queue, then start a safe
-background conversion. Outputs are written beside their source fonts and existing WOFF2 files are
-never overwritten. Encoding uses Brotli quality 11, the WOFF2 `glyf/loca` transform, and a
-single deterministic compression thread. See the Chinese section above for development, testing,
-release, and signing commands.
+Drag files or recursively scanned folders into the application, review the automatically detected
+conversion direction, then start a safe background conversion. Outputs are written beside their
+source fonts and existing files are never overwritten. Encoding uses Brotli quality 11, the WOFF2
+`glyf/loca` transform when applicable, and a single deterministic compression thread. See the
+Chinese section above for development, testing, release, and signing commands.
 
 ## License and attribution
 
 This project is available under either the MIT License or the Apache License 2.0.
 
 Google WOFF2 and Brotli are distributed under the MIT License; their source and license files are
-kept in `vendor/woff2`. The Abel fixture downloaded only during CI is covered by the SIL Open Font
-License in `google/fonts`. No test font is redistributed in application packages.
+kept in `vendor/woff2`. The Abel and Source Code Pro fixtures downloaded only during CI are covered
+by the SIL Open Font License. No test font is redistributed in application packages.

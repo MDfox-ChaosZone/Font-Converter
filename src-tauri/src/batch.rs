@@ -11,7 +11,10 @@ use tauri::{AppHandle, Emitter};
 use ttf2woff2_gui_shared::{BatchSummary, ItemStatus, PROGRESS_EVENT, ProgressEvent, QueueItem};
 use uuid::Uuid;
 
-use crate::converter::{self, ConversionError};
+use crate::{
+    converter::{self, ConversionError},
+    scanner,
+};
 
 #[derive(Clone, Default)]
 pub struct BatchManager {
@@ -83,8 +86,16 @@ fn run_batch(app: &AppHandle, batch_id: &str, items: &mut [QueueItem], cancellat
         }
 
         let input = PathBuf::from(&items[index].input_path);
-        let expected_output = input.with_extension("woff2");
-        if !valid_item(&input, &expected_output, &items[index].output_path) {
+        let conversion = scanner::conversion_for(&input);
+        let Ok((expected_kind, expected_output)) = conversion else {
+            items[index].status = ItemStatus::Failed;
+            items[index].message = Some("Invalid or changed input font".into());
+            emit(app, batch_id, Some(items[index].clone()), items, false);
+            continue;
+        };
+        if expected_kind != items[index].conversion
+            || expected_output != Path::new(&items[index].output_path)
+        {
             items[index].status = ItemStatus::Failed;
             items[index].message = Some("Invalid or changed conversion path".into());
             emit(app, batch_id, Some(items[index].clone()), items, false);
@@ -95,7 +106,7 @@ fn run_batch(app: &AppHandle, batch_id: &str, items: &mut [QueueItem], cancellat
         items[index].message = None;
         emit(app, batch_id, Some(items[index].clone()), items, false);
 
-        match converter::convert(&input, &expected_output) {
+        match converter::convert(&input, &expected_output, expected_kind) {
             Ok(output) => {
                 items[index].status = ItemStatus::Succeeded;
                 items[index].input_bytes = Some(output.input_bytes);
@@ -117,15 +128,6 @@ fn run_batch(app: &AppHandle, batch_id: &str, items: &mut [QueueItem], cancellat
     }
 
     emit(app, batch_id, None, items, true);
-}
-
-fn valid_item(input: &Path, expected_output: &Path, supplied_output: &str) -> bool {
-    input.is_file()
-        && input
-            .extension()
-            .and_then(|value| value.to_str())
-            .is_some_and(|value| value.eq_ignore_ascii_case("ttf"))
-        && expected_output == Path::new(supplied_output)
 }
 
 fn emit(

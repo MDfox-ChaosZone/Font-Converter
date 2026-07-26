@@ -2,6 +2,15 @@ use serde::{Deserialize, Serialize};
 
 pub const PROGRESS_EVENT: &str = "conversion-progress";
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConversionKind {
+    TtfToWoff2,
+    OtfToWoff2,
+    Woff2ToTtf,
+    Woff2ToOtf,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ItemStatus {
@@ -26,6 +35,7 @@ impl ItemStatus {
 #[serde(rename_all = "camelCase")]
 pub struct QueueItem {
     pub id: String,
+    pub conversion: ConversionKind,
     pub input_path: String,
     pub output_path: String,
     pub input_bytes: Option<u64>,
@@ -108,6 +118,7 @@ mod tests {
             .enumerate()
             .map(|(index, status)| QueueItem {
                 id: index.to_string(),
+                conversion: ConversionKind::TtfToWoff2,
                 input_path: String::new(),
                 output_path: String::new(),
                 input_bytes: None,

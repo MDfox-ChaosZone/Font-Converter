@@ -157,6 +157,24 @@ h1 {
   margin-top: 22px;
 }
 
+.format-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 15px;
+}
+
+.format-pills span {
+  padding: 5px 9px;
+  border: 1px solid #e0e2ff;
+  border-radius: 999px;
+  color: #4e55ca;
+  background: #f7f7ff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .button {
   min-height: 38px;
   padding: 8px 15px;
@@ -356,7 +374,9 @@ h1 {
 
 .file-badge {
   flex: 0 0 auto;
+  min-width: 52px;
   padding: 7px 6px;
+  text-align: center;
   border: 1px solid #d6d9fb;
   border-radius: 7px;
   color: #4e55ca;

@@ -11,6 +11,6 @@ https://github.com/google/brotli
 Copyright 2013 Google Inc.
 Licensed under the MIT License.
 
-The CI test suite downloads Abel from a pinned google/fonts commit. Abel is
-licensed under the SIL Open Font License and is not shipped in application
-packages.
+The CI test suite downloads Abel and Source Code Pro from pinned upstream
+commits. Both fonts are licensed under the SIL Open Font License and are not
+shipped in application packages.

@@ -34,6 +34,8 @@ jobs:
           mkdir -p target/test-fixtures
           curl --fail --location --output target/test-fixtures/Abel-Regular.ttf \
             https://raw.githubusercontent.com/google/fonts/7ff85c87f93ea6cca5f41c69f2e4edcb90240f26/ofl/abel/Abel-Regular.ttf
+          curl --fail --location --output target/test-fixtures/SourceCodePro-Regular.otf \
+            https://raw.githubusercontent.com/adobe-fonts/source-code-pro/803b7e23ec97ae58b6232ea76519a76d428ba268/OTF/SourceCodePro-Regular.otf
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -41,6 +43,7 @@ jobs:
       - name: Run native tests
         env:
           TTF2WOFF2_TEST_FONT: ${{ github.workspace }}/target/test-fixtures/Abel-Regular.ttf
+          TTF2WOFF2_TEST_OTF: ${{ github.workspace }}/target/test-fixtures/SourceCodePro-Regular.otf
         run: cargo test -p ttf2woff2-gui-shared -p ttf2woff2-gui
 
       - name: Run Clippy

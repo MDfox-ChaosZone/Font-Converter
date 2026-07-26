@@ -9,6 +9,8 @@ const WOFF2_SOURCES: &[&str] = &[
     "src/normalize.cc",
     "src/transform.cc",
     "src/woff2_enc.cc",
+    "src/woff2_dec.cc",
+    "src/woff2_out.cc",
 ];
 
 const BROTLI_ENCODER_SOURCES: &[&str] = &[
@@ -34,6 +36,13 @@ const BROTLI_ENCODER_SOURCES: &[&str] = &[
 
 const BROTLI_COMMON_SOURCES: &[&str] = &["c/common/dictionary.c", "c/common/transform.c"];
 
+const BROTLI_DECODER_SOURCES: &[&str] = &[
+    "c/dec/bit_reader.c",
+    "c/dec/decode.c",
+    "c/dec/huffman.c",
+    "c/dec/state.c",
+];
+
 fn main() {
     build_google_woff2();
     tauri_build::build();
@@ -47,6 +56,7 @@ fn build_google_woff2() {
     let brotli = upstream.join("brotli");
 
     require_checkout(&upstream.join("include/woff2/encode.h"));
+    require_checkout(&upstream.join("include/woff2/decode.h"));
     require_checkout(&brotli.join("c/include/brotli/encode.h"));
 
     let mut woff2 = cc::Build::new();
@@ -72,6 +82,13 @@ fn build_google_woff2() {
         encoder.file(brotli.join(source));
     }
     encoder.compile("ttf2woff2_brotli_encoder");
+
+    let mut decoder = cc::Build::new();
+    decoder.include(brotli.join("c/include"));
+    for source in BROTLI_DECODER_SOURCES {
+        decoder.file(brotli.join(source));
+    }
+    decoder.compile("ttf2woff2_brotli_decoder");
 
     let mut common = cc::Build::new();
     common.include(brotli.join("c/include"));

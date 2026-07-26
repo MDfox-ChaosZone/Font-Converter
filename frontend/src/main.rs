@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use i18n::{Locale, Message};
 use leptos::prelude::*;
 use ttf2woff2_gui_shared::{
-    BatchSummary, ItemStatus, ProgressEvent, QueueItem, ScanResult, ScanWarning,
+    BatchSummary, ConversionKind, ItemStatus, ProgressEvent, QueueItem, ScanResult, ScanWarning,
 };
 use wasm_bindgen_futures::spawn_local;
 
@@ -167,6 +167,11 @@ fn App() -> impl IntoView {
                 <div class="drop-icon" aria-hidden="true">"Aa"</div>
                 <h2>{move || locale.get().t(Message::DropTitle)}</h2>
                 <p>{move || locale.get().t(Message::DropHint)}</p>
+                <div class="format-pills" aria-label=move || locale.get().t(Message::SupportedFormats)>
+                    <span>"TTF → WOFF2"</span>
+                    <span>"OTF → WOFF2"</span>
+                    <span>"WOFF2 → TTF / OTF"</span>
+                </div>
                 <div class="picker-actions">
                     <button class="button secondary" on:click=choose_files disabled=move || active_batch.get().is_some()>
                         {move || locale.get().t(Message::SelectFiles)}
@@ -279,7 +284,7 @@ fn QueueRow(
     view! {
         <article class="queue-row">
             <div class="file-cell">
-                <div class="file-badge">"TTF"</div>
+                <div class="file-badge">{conversion_badge(item.conversion)}</div>
                 <div class="file-info">
                     <strong title=item.input_path.clone()>{input_name}</strong>
                     <span title=item.output_path.clone()>
@@ -360,6 +365,15 @@ fn status_label(locale: Locale, status: &ItemStatus) -> &'static str {
         ItemStatus::Failed => Message::Failed,
         ItemStatus::Cancelled => Message::Cancelled,
     })
+}
+
+fn conversion_badge(conversion: ConversionKind) -> &'static str {
+    match conversion {
+        ConversionKind::TtfToWoff2 => "TTF→W2",
+        ConversionKind::OtfToWoff2 => "OTF→W2",
+        ConversionKind::Woff2ToTtf => "W2→TTF",
+        ConversionKind::Woff2ToOtf => "W2→OTF",
+    }
 }
 
 fn status_class(status: &ItemStatus) -> &'static str {
