@@ -1,0 +1,10 @@
+ttf2woff2-GUI
+Copyright 2026 ttf2woff2-GUI contributors
+
+This product uses the ttf2woff2 crate:
+https://github.com/0x6b/ttf2woff2
+Licensed under MIT OR Apache-2.0.
+
+The CI test suite downloads Warpnine Sans from the pinned upstream release.
+That font is licensed under the SIL Open Font License and is not shipped in
+application packages.

@@ -1,0 +1,30 @@
+[package]
+name = "ttf2woff2-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "ttf2woff2_gui_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "ttf2woff2-gui"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ttf2woff2-gui-shared.workspace = true
+tauri = { version = "2.11", features = [] }
+tauri-plugin-dialog = "2.7"
+tempfile = "3"
+ttf2woff2 = { version = "=0.13.2", default-features = false }
+uuid = { version = "1", features = ["v4"] }
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"

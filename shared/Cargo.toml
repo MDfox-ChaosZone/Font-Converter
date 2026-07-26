@@ -1,0 +1,8 @@
+[package]
+name = "ttf2woff2-gui-shared"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true

@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Download the pinned OFL test font
+        run: |
+          mkdir -p target/test-fixtures
+          curl --fail --location --output target/test-fixtures/WarpnineSans-Regular.ttf \
+            https://raw.githubusercontent.com/0x6b/ttf2woff2/v0.13.2/tests/fixtures/WarpnineSans-Regular.ttf
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run native tests
+        env:
+          TTF2WOFF2_TEST_FONT: ${{ github.workspace }}/target/test-fixtures/WarpnineSans-Regular.ttf
+        run: cargo test -p ttf2woff2-gui-shared -p ttf2woff2-gui
+
+      - name: Run Clippy
+        run: cargo clippy -p ttf2woff2-gui-shared -p ttf2woff2-gui --all-targets -- -D warnings
+
+      - name: Check the Leptos WebAssembly frontend
+        run: cargo check -p ttf2woff2-gui-frontend --target wasm32-unknown-unknown
+
+      - name: Build the static frontend
+        run: trunk build --config frontend/Trunk.toml --release
+
+  desktop-build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: msi,nsis
+          - platform: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+          - platform: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+          - platform: macos-15
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown,${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: tauri-apps/tauri-action@v1
+        with:
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
