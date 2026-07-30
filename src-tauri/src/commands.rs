@@ -1,6 +1,6 @@
+use fontbridge_shared::{QueueItem, ScanResult};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
-use ttf2woff2_gui_shared::{QueueItem, ScanResult};
 
 use crate::{batch::BatchManager, scanner};
 
@@ -27,9 +27,12 @@ pub fn pick_folder(app: AppHandle) -> Vec<String> {
         .unwrap_or_default()
 }
 
-#[tauri::command]
-pub fn collect_inputs(paths: Vec<String>) -> ScanResult {
-    scanner::collect(&paths)
+#[tauri::command(rename_all = "camelCase")]
+pub fn collect_inputs(paths: Vec<String>, output_directory: Option<String>) -> ScanResult {
+    scanner::collect(
+        &paths,
+        output_directory.as_deref().map(std::path::Path::new),
+    )
 }
 
 #[tauri::command]

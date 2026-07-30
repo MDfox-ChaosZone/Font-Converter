@@ -3,12 +3,21 @@ mod i18n;
 
 use std::collections::HashSet;
 
-use i18n::{Locale, Message};
-use leptos::prelude::*;
-use ttf2woff2_gui_shared::{
+use fontbridge_shared::{
     BatchSummary, ConversionKind, ItemStatus, ProgressEvent, QueueItem, ScanResult, ScanWarning,
 };
+use i18n::{Locale, Message};
+use leptos::{ev, leptos_dom::helpers::window_event_listener, prelude::*};
 use wasm_bindgen_futures::spawn_local;
+
+const MIN_COLUMN_WIDTHS: [i32; 5] = [68, 90, 120, 88, 56];
+
+#[derive(Clone, Copy)]
+struct ColumnResize {
+    index: usize,
+    start_x: i32,
+    start_width: i32,
+}
 
 fn main() {
     mount_to_body(App);
@@ -22,16 +31,38 @@ fn App() -> impl IntoView {
     let summary = RwSignal::new(BatchSummary::default());
     let active_batch = RwSignal::new(None::<String>);
     let scanning = RwSignal::new(false);
+    let dragging = RwSignal::new(false);
+    let output_directory = RwSignal::new(None::<String>);
     let error = RwSignal::new(None::<String>);
+    let column_widths = RwSignal::new([78_i32, 110, 170, 96, 62]);
+    let resizing = RwSignal::new(None::<ColumnResize>);
+
+    let pointer_move = window_event_listener(ev::pointermove, move |event| {
+        let Some(resize) = resizing.get_untracked() else {
+            return;
+        };
+        let next = resized_column_width(
+            resize.start_width,
+            resize.start_x,
+            event.client_x(),
+            MIN_COLUMN_WIDTHS[resize.index],
+        );
+        column_widths.update(|widths| widths[resize.index] = next);
+    });
+    let pointer_up = window_event_listener(ev::pointerup, move |_| resizing.set(None));
+    on_cleanup(move || {
+        pointer_move.remove();
+        pointer_up.remove();
+    });
 
     let add_paths = move |paths: Vec<String>| {
-        if paths.is_empty() {
+        if paths.is_empty() || scanning.get_untracked() || active_batch.get_untracked().is_some() {
             return;
         }
         scanning.set(true);
         error.set(None);
         spawn_local(async move {
-            match api::collect_inputs(paths).await {
+            match api::collect_inputs(paths, output_directory.get_untracked()).await {
                 Ok(result) => merge_scan_result(items, warnings, summary, result),
                 Err(message) => error.set(Some(message)),
             }
@@ -39,7 +70,12 @@ fn App() -> impl IntoView {
         });
     };
 
-    api::setup_drag_drop_listener(add_paths);
+    api::setup_drag_drop_listener(move |is_dragging, paths| {
+        dragging.set(is_dragging);
+        if !paths.is_empty() {
+            add_paths(paths);
+        }
+    });
     api::setup_progress_listener(move |event: ProgressEvent| {
         if active_batch.get_untracked().as_deref() == Some("") {
             active_batch.set(Some(event.batch_id.clone()));
@@ -77,6 +113,43 @@ fn App() -> impl IntoView {
             }
         });
     };
+    let retarget_outputs = move |next_directory: Option<String>| {
+        if scanning.get_untracked() || active_batch.get_untracked().is_some() {
+            return;
+        }
+        output_directory.set(next_directory.clone());
+        let paths = items.with_untracked(|items| {
+            items
+                .iter()
+                .map(|item| item.input_path.clone())
+                .collect::<Vec<_>>()
+        });
+        if paths.is_empty() {
+            return;
+        }
+        scanning.set(true);
+        error.set(None);
+        spawn_local(async move {
+            match api::collect_inputs(paths, next_directory).await {
+                Ok(result) => replace_scan_result(items, warnings, summary, result),
+                Err(message) => error.set(Some(message)),
+            }
+            scanning.set(false);
+        });
+    };
+    let choose_output_folder = move |_| {
+        spawn_local(async move {
+            match api::pick_folder().await {
+                Ok(paths) => {
+                    if let Some(path) = paths.into_iter().next() {
+                        retarget_outputs(Some(path));
+                    }
+                }
+                Err(message) => error.set(Some(message)),
+            }
+        });
+    };
+    let reset_output_folder = move |_| retarget_outputs(None);
     let start = move |_| {
         let pending = items.with_untracked(|items| {
             items
@@ -116,9 +189,13 @@ fn App() -> impl IntoView {
     };
     let clear_completed = move |_| {
         items.update(|items| items.retain(|item| !item.status.is_finished()));
-        if items.read().is_empty() {
-            summary.set(BatchSummary::default());
-        }
+        summary.set(BatchSummary::from_items(&items.get_untracked()));
+    };
+    let clear_all = move |_| {
+        items.set(Vec::new());
+        warnings.set(Vec::new());
+        summary.set(BatchSummary::default());
+        error.set(None);
     };
     let remove_item = Callback::new(move |id: String| {
         if active_batch.get_untracked().is_some() {
@@ -132,140 +209,335 @@ fn App() -> impl IntoView {
         next.save();
     };
 
-    let pending_count = move || {
-        items.with(|items| {
-            items
-                .iter()
-                .filter(|item| item.status == ItemStatus::Queued)
-                .count()
-        })
+    let pending_count = move || summary.get().queued;
+    let finished_count = move || completed_count(&summary.get());
+    let has_finished = move || finished_count() > 0;
+    let progress_percent = move || {
+        let current = summary.get();
+        completed_count(&current)
+            .saturating_mul(100)
+            .checked_div(current.total)
+            .unwrap_or_default()
+    };
+    let queue_columns_style = move || {
+        let widths = column_widths.get();
+        format!(
+            "--direction-column: {}px; --name-column: {}px; --path-column: {}px; \
+             --size-column: {}px; --status-column: {}px",
+            widths[0], widths[1], widths[2], widths[3], widths[4]
+        )
     };
 
     view! {
         <main class="app-shell">
             <header class="topbar">
                 <div class="brand">
-                    <div class="brand-mark">"W2"</div>
+                    <div class="brand-mark">"FB"</div>
                     <div>
-                        <h1>"ttf2woff2-GUI"</h1>
+                        <h1>"FontBridge"</h1>
                         <p>{move || locale.get().t(Message::Tagline)}</p>
                     </div>
                 </div>
                 <div class="language" aria-label=move || locale.get().t(Message::Language)>
                     <button
+                        type="button"
                         class:active=move || locale.get() == Locale::ZhCn
                         on:click=move |_| set_locale(Locale::ZhCn)
                     >"中文"</button>
                     <button
+                        type="button"
                         class:active=move || locale.get() == Locale::En
                         on:click=move |_| set_locale(Locale::En)
                     >"EN"</button>
                 </div>
             </header>
 
-            <section class="drop-zone" class:busy=move || scanning.get()>
-                <div class="drop-icon" aria-hidden="true">"Aa"</div>
-                <h2>{move || locale.get().t(Message::DropTitle)}</h2>
-                <p>{move || locale.get().t(Message::DropHint)}</p>
-                <div class="format-pills" aria-label=move || locale.get().t(Message::SupportedFormats)>
-                    <span>"TTF → WOFF2"</span>
-                    <span>"OTF → WOFF2"</span>
-                    <span>"WOFF2 → TTF / OTF"</span>
-                </div>
-                <div class="picker-actions">
-                    <button class="button secondary" on:click=choose_files disabled=move || active_batch.get().is_some()>
-                        {move || locale.get().t(Message::SelectFiles)}
-                    </button>
-                    <button class="button secondary" on:click=choose_folder disabled=move || active_batch.get().is_some()>
-                        {move || locale.get().t(Message::SelectFolder)}
-                    </button>
-                </div>
-                <span class="safe-note">"✓ " {move || locale.get().t(Message::SafeOutput)}</span>
-            </section>
-
-            {move || error.get().map(|message| view! {
-                <div class="alert error" role="alert">
-                    <strong>{locale.get().t(Message::CommandFailed)}</strong>
-                    <span>{message}</span>
-                </div>
-            })}
-
-            {move || (!warnings.read().is_empty()).then(|| view! {
-                <details class="alert warnings">
-                    <summary>{locale.get().t(Message::Warnings)} " (" {warnings.read().len()} ")"</summary>
-                    <ul>
-                        <For
-                            each=move || warnings.get()
-                            key=|warning| format!("{}:{}", warning.path, warning.message)
-                            children=|warning| view! {
-                                <li><code>{warning.path}</code> " — " {warning.message}</li>
-                            }
-                        />
-                    </ul>
-                </details>
-            })}
-
-            <section class="queue-card">
-                <div class="queue-toolbar">
-                    <div>
-                        <h2>{move || locale.get().t(Message::Total)} " · " {move || items.read().len()}</h2>
-                        <BatchSummaryView locale summary />
-                    </div>
-                    <div class="queue-actions">
-                        <button
-                            class="button ghost"
-                            on:click=clear_completed
-                            disabled=move || active_batch.get().is_some() || !items.read().iter().any(|item| item.status.is_finished())
-                        >{move || locale.get().t(Message::ClearCompleted)}</button>
-                        <Show
-                            when=move || active_batch.get().is_some()
-                            fallback=move || view! {
-                                <button
-                                    class="button primary"
-                                    on:click=start
-                                    disabled=move || pending_count() == 0 || scanning.get()
-                                >{move || locale.get().t(Message::Start)} " (" {pending_count} ")"</button>
-                            }
-                        >
-                            <button class="button danger" on:click=cancel>
-                                {move || locale.get().t(Message::Cancel)}
-                            </button>
-                        </Show>
-                    </div>
-                </div>
-
-                <Show
-                    when=move || !items.read().is_empty()
-                    fallback=move || view! {
-                        <div class="empty-state">
-                            <div>"W2"</div>
-                            <h3>{locale.get().t(Message::EmptyTitle)}</h3>
-                            <p>{locale.get().t(Message::EmptyHint)}</p>
-                        </div>
-                    }
+            <div class="workspace">
+                <section
+                    class="drop-zone"
+                    class:busy=move || scanning.get()
+                    class:dragging=move || dragging.get()
                 >
-                    <div class="queue-list">
-                        <div class="queue-head">
-                            <span>{move || locale.get().t(Message::File)}</span>
-                            <span class="input-size">{move || locale.get().t(Message::InputSize)}</span>
-                            <span class="output-size">{move || locale.get().t(Message::OutputSize)}</span>
-                            <span>{move || locale.get().t(Message::Status)}</span>
-                            <span>{move || locale.get().t(Message::Actions)}</span>
+                    <div class="drop-content">
+                        <div class="drop-icon" aria-hidden="true">"Aa"</div>
+                        <h2>{move || locale.get().t(Message::DropTitle)}</h2>
+                        <div
+                            class="format-pills"
+                            aria-label=move || locale.get().t(Message::SupportedFormats)
+                        >
+                            <span>"TTF / OTF → WOFF2"</span>
+                            <span>"WOFF2 → TTF / OTF"</span>
                         </div>
-                        <For
-                            each=move || items.get()
-                            key=|item| format!(
-                                "{}:{:?}:{:?}:{:?}",
-                                item.id, item.status, item.output_bytes, item.message
-                            )
-                            children=move |item| view! {
-                                <QueueRow locale item active_batch on_remove=remove_item />
-                            }
-                        />
+                        <p class="direction-help">
+                            {move || locale.get().t(Message::AutoDetect)}
+                            <span
+                                class="help-tooltip"
+                                tabindex="0"
+                                aria-label=move || locale.get().t(Message::AutoDetectHint)
+                            >
+                                "?"
+                                <span role="tooltip">
+                                    {move || locale.get().t(Message::AutoDetectHint)}
+                                </span>
+                            </span>
+                        </p>
+
+                        <div class="picker-actions">
+                            <button
+                                class="button secondary"
+                                type="button"
+                                on:click=choose_files
+                                disabled=move || active_batch.get().is_some() || scanning.get()
+                            >
+                                {move || locale.get().t(Message::SelectFiles)}
+                            </button>
+                            <button
+                                class="button secondary"
+                                type="button"
+                                on:click=choose_folder
+                                disabled=move || active_batch.get().is_some() || scanning.get()
+                            >
+                                {move || locale.get().t(Message::SelectFolder)}
+                            </button>
+                        </div>
+
+                        <div class="output-destination">
+                            <div class="output-destination-copy">
+                                <span>{move || locale.get().t(Message::OutputFolder)}</span>
+                                <strong title=move || {
+                                    output_directory
+                                        .get()
+                                        .unwrap_or_else(|| locale.get().t(Message::SourceFolder).into())
+                                }>
+                                    {move || {
+                                        output_directory
+                                            .get()
+                                            .map(|path| file_name(&path))
+                                            .unwrap_or_else(|| locale.get().t(Message::SourceFolder).into())
+                                    }}
+                                </strong>
+                            </div>
+                            <div class="output-destination-actions">
+                                <button
+                                    type="button"
+                                    class="destination-button"
+                                    title=move || locale.get().t(Message::ChooseOutputFolder)
+                                    aria-label=move || locale.get().t(Message::ChooseOutputFolder)
+                                    on:click=choose_output_folder
+                                    disabled=move || active_batch.get().is_some() || scanning.get()
+                                >
+                                    <span aria-hidden="true">"▰"</span>
+                                </button>
+                                <Show when=move || output_directory.get().is_some()>
+                                    <button
+                                        type="button"
+                                        class="destination-button reset"
+                                        title=move || locale.get().t(Message::ResetOutputFolder)
+                                        aria-label=move || locale.get().t(Message::ResetOutputFolder)
+                                        on:click=reset_output_folder
+                                        disabled=move || active_batch.get().is_some() || scanning.get()
+                                    >
+                                        <span aria-hidden="true">"↺"</span>
+                                    </button>
+                                </Show>
+                            </div>
+                        </div>
+
+                        <div class="scan-state" role="status" aria-live="polite">
+                            <Show when=move || scanning.get()>
+                                <span class="scanning-note">
+                                    <span class="spinner" aria-hidden="true"></span>
+                                    {move || locale.get().t(Message::Scanning)}
+                                </span>
+                            </Show>
+                        </div>
                     </div>
-                </Show>
-            </section>
+                </section>
+
+                <section class="queue-card" aria-label=move || locale.get().t(Message::Queue)>
+                    <div class="queue-toolbar">
+                        <div class="queue-overview">
+                            <div class="queue-title-line">
+                                <h2>{move || locale.get().t(Message::Queue)}</h2>
+                                <span class="total-count">{move || items.read().len()}</span>
+                            </div>
+                            <p class="completion" role="status" aria-live="polite">
+                                {move || locale.get().t(Message::Completed)}
+                                " "
+                                <strong>{finished_count}</strong>
+                                " / "
+                                <strong>{move || summary.get().total}</strong>
+                            </p>
+                            <div class="progress-track" aria-hidden="true">
+                                <span style:width=move || format!("{}%", progress_percent())></span>
+                            </div>
+                            <BatchSummaryView locale summary />
+                        </div>
+                        <div class="queue-actions">
+                            <Show when=move || {
+                                active_batch.get().is_none() && has_finished()
+                            }>
+                                <button class="button ghost" type="button" on:click=clear_completed>
+                                    {move || locale.get().t(Message::ClearCompleted)}
+                                </button>
+                            </Show>
+                            <Show when=move || {
+                                active_batch.get().is_none() && !items.read().is_empty()
+                            }>
+                                <button class="button ghost" type="button" on:click=clear_all>
+                                    {move || locale.get().t(Message::ClearAll)}
+                                </button>
+                            </Show>
+                            <Show
+                                when=move || active_batch.get().is_some()
+                                fallback=move || view! {
+                                    <button
+                                        class="button primary"
+                                        type="button"
+                                        on:click=start
+                                        disabled=move || pending_count() == 0 || scanning.get()
+                                    >
+                                        {move || locale.get().t(Message::Start)}
+                                        " ("
+                                        {pending_count}
+                                        ")"
+                                    </button>
+                                }
+                            >
+                                <button class="button danger" type="button" on:click=cancel>
+                                    {move || locale.get().t(Message::Cancel)}
+                                </button>
+                            </Show>
+                        </div>
+                    </div>
+
+                    <div class="queue-notices">
+                        {move || error.get().map(|message| view! {
+                            <div class="alert error" role="alert" aria-live="assertive">
+                                <strong>{locale.get().t(Message::CommandFailed)}</strong>
+                                <span>{message}</span>
+                            </div>
+                        })}
+
+                        {move || (!warnings.read().is_empty()).then(|| view! {
+                            <details class="alert warnings">
+                                <summary>
+                                    {locale.get().t(Message::Warnings)}
+                                    " ("
+                                    {warnings.read().len()}
+                                    ")"
+                                </summary>
+                                <ul>
+                                    <For
+                                        each=move || warnings.get()
+                                        key=|warning| format!("{}:{}", warning.path, warning.message)
+                                        children=|warning| view! {
+                                            <li>
+                                                <code>{warning.path}</code>
+                                                " — "
+                                                {warning.message}
+                                            </li>
+                                        }
+                                    />
+                                </ul>
+                            </details>
+                        })}
+                    </div>
+
+                    <Show
+                        when=move || !items.read().is_empty()
+                        fallback=move || view! {
+                            <div class="empty-state">
+                                <h3>{locale.get().t(Message::EmptyTitle)}</h3>
+                                <p>{locale.get().t(Message::EmptyHint)}</p>
+                            </div>
+                        }
+                    >
+                        <div class="queue-list" style=queue_columns_style>
+                            <div class="queue-head">
+                                <ColumnHeading
+                                    locale
+                                    label=Message::ConversionDirection
+                                    index=0
+                                    column_widths
+                                    resizing
+                                />
+                                <ColumnHeading
+                                    locale
+                                    label=Message::File
+                                    index=1
+                                    column_widths
+                                    resizing
+                                />
+                                <ColumnHeading
+                                    locale
+                                    label=Message::Path
+                                    index=2
+                                    column_widths
+                                    resizing
+                                />
+                                <ColumnHeading
+                                    locale
+                                    label=Message::SizeChange
+                                    index=3
+                                    column_widths
+                                    resizing
+                                    class="size-change"
+                                />
+                                <ColumnHeading
+                                    locale
+                                    label=Message::Status
+                                    index=4
+                                    column_widths
+                                    resizing
+                                />
+                                <span class="visually-hidden">{move || locale.get().t(Message::Actions)}</span>
+                            </div>
+                            <For
+                                each=move || items.get()
+                                key=|item| format!(
+                                    "{}:{:?}:{:?}:{:?}",
+                                    item.id, item.status, item.output_bytes, item.message
+                                )
+                                children=move |item| view! {
+                                    <QueueRow locale item active_batch on_remove=remove_item />
+                                }
+                            />
+                        </div>
+                    </Show>
+                </section>
+            </div>
         </main>
+    }
+}
+
+#[component]
+fn ColumnHeading(
+    locale: RwSignal<Locale>,
+    label: Message,
+    index: usize,
+    column_widths: RwSignal<[i32; 5]>,
+    resizing: RwSignal<Option<ColumnResize>>,
+    #[prop(optional, into)] class: String,
+) -> impl IntoView {
+    view! {
+        <span class=format!("column-heading {class}")>
+            {move || locale.get().t(label)}
+            <button
+                class="column-resizer"
+                type="button"
+                title=move || locale.get().t(Message::ResizeColumn)
+                aria-label=move || locale.get().t(Message::ResizeColumn)
+                on:pointerdown=move |event| {
+                    event.prevent_default();
+                    resizing.set(Some(ColumnResize {
+                        index,
+                        start_x: event.client_x(),
+                        start_width: column_widths.get_untracked()[index],
+                    }));
+                }
+            ></button>
+        </span>
     }
 }
 
@@ -278,32 +550,45 @@ fn QueueRow(
 ) -> impl IntoView {
     let status_class = format!("status {}", status_class(&item.status));
     let input_name = file_name(&item.input_path);
-    let output_name = file_name(&item.output_path);
+    let size_change = format_size_change(item.input_bytes, item.output_bytes);
     let status = item.status.clone();
     let item_id = item.id.clone();
+    let input_title = display_path(&item.input_path);
+    let output_title = display_path(&item.output_path);
     view! {
         <article class="queue-row">
-            <div class="file-cell">
+            <div class="direction-cell">
                 <div class="file-badge">{conversion_badge(item.conversion)}</div>
-                <div class="file-info">
-                    <strong title=item.input_path.clone()>{input_name}</strong>
-                    <span title=item.output_path.clone()>
-                        {move || locale.get().t(Message::Output)} ": " {output_name}
-                    </span>
-                    {item.message.map(|message| view! { <small>{message}</small> })}
-                </div>
             </div>
-            <span class="size input-size">{format_bytes(item.input_bytes)}</span>
-            <span class="size output-size">{format_bytes(item.output_bytes)}</span>
-            <span class=status_class>{move || status_label(locale.get(), &status)}</span>
+            <div class="font-name-cell">
+                <strong title=input_title.clone()>{input_name}</strong>
+            </div>
+            <div class="path-cell">
+                <span title=input_title>{display_path(&item.input_path)}</span>
+                <small title=output_title>
+                    <span aria-hidden="true">"→ "</span>
+                    {display_path(&item.output_path)}
+                </small>
+                {item.message.map(|message| view! {
+                    <em>{move || localized_message(locale.get(), &message)}</em>
+                })}
+            </div>
+            <div class="size-change">
+                <span>{format_bytes(item.input_bytes)} " → " {format_bytes(item.output_bytes)}</span>
+                <strong>{size_change}</strong>
+            </div>
+            <span class=status_class aria-live="polite">
+                {move || status_label(locale.get(), &status)}
+            </span>
             <button
                 class="remove-item"
                 type="button"
                 disabled=move || active_batch.get().is_some()
                 title=move || locale.get().t(Message::Remove)
+                aria-label=move || locale.get().t(Message::Remove)
                 on:click=move |_| on_remove.run(item_id.clone())
             >
-                {move || locale.get().t(Message::Remove)}
+                <span aria-hidden="true">"×"</span>
             </button>
         </article>
     }
@@ -312,13 +597,49 @@ fn QueueRow(
 #[component]
 fn BatchSummaryView(locale: RwSignal<Locale>, summary: RwSignal<BatchSummary>) -> impl IntoView {
     view! {
-        <div class="summary">
-            <span class="success-dot"></span>
-            <span>{move || locale.get().t(Message::Succeeded)} " " {move || summary.get().succeeded}</span>
-            <span class="skip-dot"></span>
-            <span>{move || locale.get().t(Message::Skipped)} " " {move || summary.get().skipped}</span>
-            <span class="fail-dot"></span>
-            <span>{move || locale.get().t(Message::Failed)} " " {move || summary.get().failed}</span>
+        <div class="summary" aria-live="polite">
+            <Show when=move || { summary.get().queued > 0 }>
+                <span class="summary-item queued">
+                    {move || locale.get().t(Message::Queued)}
+                    " "
+                    {move || summary.get().queued}
+                </span>
+            </Show>
+            <Show when=move || { summary.get().running > 0 }>
+                <span class="summary-item running">
+                    {move || locale.get().t(Message::Running)}
+                    " "
+                    {move || summary.get().running}
+                </span>
+            </Show>
+            <Show when=move || { summary.get().succeeded > 0 }>
+                <span class="summary-item succeeded">
+                    {move || locale.get().t(Message::Succeeded)}
+                    " "
+                    {move || summary.get().succeeded}
+                </span>
+            </Show>
+            <Show when=move || { summary.get().skipped > 0 }>
+                <span class="summary-item skipped">
+                    {move || locale.get().t(Message::Skipped)}
+                    " "
+                    {move || summary.get().skipped}
+                </span>
+            </Show>
+            <Show when=move || { summary.get().failed > 0 }>
+                <span class="summary-item failed">
+                    {move || locale.get().t(Message::Failed)}
+                    " "
+                    {move || summary.get().failed}
+                </span>
+            </Show>
+            <Show when=move || { summary.get().cancelled > 0 }>
+                <span class="summary-item cancelled">
+                    {move || locale.get().t(Message::Cancelled)}
+                    " "
+                    {move || summary.get().cancelled}
+                </span>
+            </Show>
         </div>
     }
 }
@@ -334,12 +655,20 @@ fn merge_scan_result(
             .iter()
             .map(|item| item.input_path.clone())
             .collect::<HashSet<_>>();
-        current.extend(
-            result
-                .items
-                .into_iter()
-                .filter(|item| known.insert(item.input_path.clone())),
-        );
+        let mut known_outputs = current
+            .iter()
+            .map(|item| item.output_path.to_lowercase())
+            .collect::<HashSet<_>>();
+        for mut item in result.items {
+            if !known.insert(item.input_path.clone()) {
+                continue;
+            }
+            if !known_outputs.insert(item.output_path.to_lowercase()) {
+                item.status = ItemStatus::Skipped;
+                item.message = Some("Output path conflicts with another queued font".into());
+            }
+            current.push(item);
+        }
     });
     warnings.update(|current| {
         let mut known = current
@@ -356,6 +685,21 @@ fn merge_scan_result(
     summary.set(BatchSummary::from_items(&items.get_untracked()));
 }
 
+fn replace_scan_result(
+    items: RwSignal<Vec<QueueItem>>,
+    warnings: RwSignal<Vec<ScanWarning>>,
+    summary: RwSignal<BatchSummary>,
+    result: ScanResult,
+) {
+    warnings.set(result.warnings);
+    items.set(result.items);
+    summary.set(BatchSummary::from_items(&items.get_untracked()));
+}
+
+fn completed_count(summary: &BatchSummary) -> usize {
+    summary.succeeded + summary.skipped + summary.failed + summary.cancelled
+}
+
 fn status_label(locale: Locale, status: &ItemStatus) -> &'static str {
     locale.t(match status {
         ItemStatus::Queued => Message::Queued,
@@ -369,11 +713,15 @@ fn status_label(locale: Locale, status: &ItemStatus) -> &'static str {
 
 fn conversion_badge(conversion: ConversionKind) -> &'static str {
     match conversion {
-        ConversionKind::TtfToWoff2 => "TTF→W2",
-        ConversionKind::OtfToWoff2 => "OTF→W2",
-        ConversionKind::Woff2ToTtf => "W2→TTF",
-        ConversionKind::Woff2ToOtf => "W2→OTF",
+        ConversionKind::TtfToWoff2 => "TTF→WOFF2",
+        ConversionKind::OtfToWoff2 => "OTF→WOFF2",
+        ConversionKind::Woff2ToTtf => "WOFF2→TTF",
+        ConversionKind::Woff2ToOtf => "WOFF2→OTF",
     }
+}
+
+fn resized_column_width(start_width: i32, start_x: i32, current_x: i32, minimum: i32) -> i32 {
+    (start_width + current_x - start_x).max(minimum)
 }
 
 fn status_class(status: &ItemStatus) -> &'static str {
@@ -388,10 +736,47 @@ fn status_class(status: &ItemStatus) -> &'static str {
 }
 
 fn file_name(path: &str) -> String {
-    std::path::Path::new(path)
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.into())
+    path.rsplit(['\\', '/'])
+        .find(|part| !part.is_empty())
+        .unwrap_or(path)
+        .to_owned()
+}
+
+fn display_path(path: &str) -> String {
+    if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{path}")
+    } else {
+        path.strip_prefix(r"\\?\").unwrap_or(path).to_owned()
+    }
+}
+
+fn localized_message(locale: Locale, message: &str) -> String {
+    if locale == Locale::En {
+        return message.into();
+    }
+
+    match message {
+        "Output file already exists" => "输出文件已存在".into(),
+        "Output path conflicts with another queued font" => "输出路径与队列中的另一字体冲突".into(),
+        "Cancelled before conversion started" => "转换开始前已取消".into(),
+        "Invalid or changed input font" => "输入字体无效或已发生变化".into(),
+        "Invalid or changed conversion path" => "转换路径无效或已发生变化".into(),
+        "Input does not contain a valid WOFF2 header" => "输入文件不包含有效的 WOFF2 文件头".into(),
+        "The WOFF2 output size is invalid or exceeds the 128 MB safety limit" => {
+            "WOFF2 解压后大小无效或超过 128 MB 安全限制".into()
+        }
+        "Google WOFF2 rejected the file or failed to decompress it" => {
+            "Google WOFF2 拒绝该文件或解压失败".into()
+        }
+        "Input font is empty" => "输入字体为空".into(),
+        "Google WOFF2 could not determine a safe output size" => {
+            "Google WOFF2 无法确定安全的输出大小".into()
+        }
+        "Google WOFF2 rejected the font or failed to encode it" => {
+            "Google WOFF2 拒绝该字体或编码失败".into()
+        }
+        _ => message.into(),
+    }
 }
 
 fn format_bytes(bytes: Option<u64>) -> String {
@@ -404,5 +789,80 @@ fn format_bytes(bytes: Option<u64>) -> String {
         format!("{:.1} KB", bytes as f64 / 1024.0)
     } else {
         format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+    }
+}
+
+fn format_size_change(input: Option<u64>, output: Option<u64>) -> String {
+    let (Some(input), Some(output)) = (input, output) else {
+        return "—".into();
+    };
+    if input == 0 {
+        return "—".into();
+    }
+
+    let change = (output as f64 - input as f64) / input as f64 * 100.0;
+    if change.abs() < 0.05 {
+        "0.0%".into()
+    } else {
+        format!("{change:+.1}%")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn size_change_handles_compression_and_expansion() {
+        assert_eq!(format_size_change(Some(100), Some(60)), "-40.0%");
+        assert_eq!(format_size_change(Some(100), Some(220)), "+120.0%");
+        assert_eq!(format_size_change(Some(100), None), "—");
+        assert_eq!(format_size_change(Some(0), Some(10)), "—");
+    }
+
+    #[test]
+    fn column_resize_tracks_pointer_delta_and_respects_minimum() {
+        assert_eq!(resized_column_width(120, 300, 340, 90), 160);
+        assert_eq!(resized_column_width(120, 300, 100, 90), 90);
+    }
+
+    #[test]
+    fn completed_count_excludes_queued_and_running() {
+        let summary = BatchSummary {
+            total: 8,
+            queued: 1,
+            running: 1,
+            succeeded: 2,
+            skipped: 1,
+            failed: 2,
+            cancelled: 1,
+        };
+        assert_eq!(completed_count(&summary), 6);
+    }
+
+    #[test]
+    fn extracts_windows_file_names_in_wasm_compatible_way() {
+        assert_eq!(
+            file_name(r"\\?\C:\Fonts\Example Font.ttf"),
+            "Example Font.ttf"
+        );
+        assert_eq!(file_name("/fonts/example.woff2"), "example.woff2");
+        assert_eq!(display_path(r"\\?\C:\Fonts\font.ttf"), r"C:\Fonts\font.ttf");
+        assert_eq!(
+            display_path(r"\\?\UNC\server\fonts\font.otf"),
+            r"\\server\fonts\font.otf"
+        );
+    }
+
+    #[test]
+    fn localizes_known_queue_messages() {
+        assert_eq!(
+            localized_message(Locale::ZhCn, "Output file already exists"),
+            "输出文件已存在"
+        );
+        assert_eq!(
+            localized_message(Locale::En, "Output file already exists"),
+            "Output file already exists"
+        );
     }
 }

@@ -42,15 +42,15 @@ jobs:
 
       - name: Run native tests
         env:
-          TTF2WOFF2_TEST_FONT: ${{ github.workspace }}/target/test-fixtures/Abel-Regular.ttf
-          TTF2WOFF2_TEST_OTF: ${{ github.workspace }}/target/test-fixtures/SourceCodePro-Regular.otf
-        run: cargo test -p ttf2woff2-gui-shared -p ttf2woff2-gui
+          FONTBRIDGE_TEST_FONT: ${{ github.workspace }}/target/test-fixtures/Abel-Regular.ttf
+          FONTBRIDGE_TEST_OTF: ${{ github.workspace }}/target/test-fixtures/SourceCodePro-Regular.otf
+        run: cargo test -p fontbridge-shared -p fontbridge
 
       - name: Run Clippy
-        run: cargo clippy -p ttf2woff2-gui-shared -p ttf2woff2-gui --all-targets -- -D warnings
+        run: cargo clippy -p fontbridge-shared -p fontbridge --all-targets -- -D warnings
 
       - name: Check the Leptos WebAssembly frontend
-        run: cargo check -p ttf2woff2-gui-frontend --target wasm32-unknown-unknown
+        run: cargo check -p fontbridge-frontend --target wasm32-unknown-unknown
 
       - name: Build the static frontend
         run: trunk build --config frontend/Trunk.toml --release

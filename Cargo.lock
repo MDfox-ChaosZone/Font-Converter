@@ -1016,6 +1016,43 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
+name = "fontbridge"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "fontbridge-shared",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tempfile",
+ "uuid",
+ "walkdir",
+]
+
+[[package]]
+name = "fontbridge-frontend"
+version = "0.1.0"
+dependencies = [
+ "fontbridge-shared",
+ "js-sys",
+ "leptos",
+ "serde",
+ "serde-wasm-bindgen",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "fontbridge-shared"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "foreign-types"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4471,43 +4508,6 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
-
-[[package]]
-name = "ttf2woff2-gui"
-version = "0.1.0"
-dependencies = [
- "cc",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tempfile",
- "ttf2woff2-gui-shared",
- "uuid",
- "walkdir",
-]
-
-[[package]]
-name = "ttf2woff2-gui-frontend"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "leptos",
- "serde",
- "serde-wasm-bindgen",
- "ttf2woff2-gui-shared",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "ttf2woff2-gui-shared"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "typed-builder"

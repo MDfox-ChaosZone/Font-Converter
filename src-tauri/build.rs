@@ -74,28 +74,28 @@ fn build_google_woff2() {
         woff2.file(upstream.join(source));
     }
     // Keep this archive before its Brotli dependencies in the linker input.
-    woff2.compile("ttf2woff2_google_woff2");
+    woff2.compile("fontbridge_google_woff2");
 
     let mut encoder = cc::Build::new();
     encoder.include(brotli.join("c/include"));
     for source in BROTLI_ENCODER_SOURCES {
         encoder.file(brotli.join(source));
     }
-    encoder.compile("ttf2woff2_brotli_encoder");
+    encoder.compile("fontbridge_brotli_encoder");
 
     let mut decoder = cc::Build::new();
     decoder.include(brotli.join("c/include"));
     for source in BROTLI_DECODER_SOURCES {
         decoder.file(brotli.join(source));
     }
-    decoder.compile("ttf2woff2_brotli_decoder");
+    decoder.compile("fontbridge_brotli_decoder");
 
     let mut common = cc::Build::new();
     common.include(brotli.join("c/include"));
     for source in BROTLI_COMMON_SOURCES {
         common.file(brotli.join(source));
     }
-    common.compile("ttf2woff2_brotli_common");
+    common.compile("fontbridge_brotli_common");
 
     println!(
         "cargo:rerun-if-changed={}",

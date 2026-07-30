@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
-extern "C" size_t ttf2woff2_google_max_compressed_size(
+extern "C" size_t fontbridge_google_max_compressed_size(
     const uint8_t* input,
     size_t input_length) noexcept {
   if (input == nullptr || input_length == 0) {
@@ -19,7 +19,7 @@ extern "C" size_t ttf2woff2_google_max_compressed_size(
   }
 }
 
-extern "C" int ttf2woff2_google_convert(
+extern "C" int fontbridge_google_convert(
     const uint8_t* input,
     size_t input_length,
     uint8_t* output,
@@ -44,7 +44,7 @@ extern "C" int ttf2woff2_google_convert(
   }
 }
 
-extern "C" size_t ttf2woff2_google_decompressed_size(
+extern "C" size_t fontbridge_google_decompressed_size(
     const uint8_t* input,
     size_t input_length) noexcept {
   if (input == nullptr || input_length == 0) {
@@ -58,7 +58,7 @@ extern "C" size_t ttf2woff2_google_decompressed_size(
   }
 }
 
-extern "C" int ttf2woff2_google_decompress(
+extern "C" int fontbridge_google_decompress(
     const uint8_t* input,
     size_t input_length,
     uint8_t* output,

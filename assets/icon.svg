@@ -6,7 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#background)"/>
-  <path d="M98 149h61l34 205h-55L98 149Zm121 0h55l-42 205h-54l41-205Zm73 0h58c44 0 70 22 70 56 0 25-15 43-38 51 30 7 47 27 47 57 0 39-30 62-79 62h-66l8-46h56c17 0 27-8 27-22 0-13-9-20-27-20h-47l8-44h44c17 0 27-8 27-21 0-12-9-18-25-18h-52l8-45Z" fill="white"/>
+  <text x="256" y="340" fill="white" font-family="Arial, sans-serif" font-size="244" font-weight="800" letter-spacing="-20" text-anchor="middle">FB</text>
   <circle cx="413" cy="101" r="42" fill="#B7F4D1"/>
   <path d="m394 102 12 12 25-28" fill="none" stroke="#087A4B" stroke-linecap="round" stroke-linejoin="round" stroke-width="11"/>
 </svg>

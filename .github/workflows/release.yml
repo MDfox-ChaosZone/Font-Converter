@@ -74,7 +74,7 @@ jobs:
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         shell: pwsh
         run: |
-          $certificatePath = Join-Path $env:RUNNER_TEMP "ttf2woff2-gui.pfx"
+          $certificatePath = Join-Path $env:RUNNER_TEMP "fontbridge.pfx"
           [IO.File]::WriteAllBytes(
             $certificatePath,
             [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
@@ -98,7 +98,7 @@ jobs:
           WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "ttf2woff2-GUI ${{ github.ref_name }}"
+          releaseName: "FontBridge ${{ github.ref_name }}"
           releaseBody: "Cross-platform desktop builds. Artifacts are unsigned unless the repository signing secrets are configured."
           releaseDraft: true
           prerelease: false
