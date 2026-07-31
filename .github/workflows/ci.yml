@@ -42,18 +42,21 @@ jobs:
 
       - name: Run native tests
         env:
-          FONTBRIDGE_TEST_FONT: ${{ github.workspace }}/target/test-fixtures/Abel-Regular.ttf
-          FONTBRIDGE_TEST_OTF: ${{ github.workspace }}/target/test-fixtures/SourceCodePro-Regular.otf
-        run: cargo test -p fontbridge-shared -p fontbridge
+          FONT_CONVERTER_TEST_FONT: ${{ github.workspace }}/target/test-fixtures/Abel-Regular.ttf
+          FONT_CONVERTER_TEST_OTF: ${{ github.workspace }}/target/test-fixtures/SourceCodePro-Regular.otf
+        run: cargo test -p font-converter-shared -p font-converter-core -p font-converter-cli -p font-converter
 
       - name: Run Clippy
-        run: cargo clippy -p fontbridge-shared -p fontbridge --all-targets -- -D warnings
+        run: cargo clippy -p font-converter-shared -p font-converter-core -p font-converter-cli -p font-converter --all-targets -- -D warnings
 
       - name: Check the Leptos WebAssembly frontend
-        run: cargo check -p fontbridge-frontend --target wasm32-unknown-unknown
+        run: cargo check -p font-converter-frontend --target wasm32-unknown-unknown
 
       - name: Build the static frontend
         run: trunk build --config frontend/Trunk.toml --release
+
+      - name: Build the CLI
+        run: cargo build -p font-converter-cli --release
 
   desktop-build:
     needs: test

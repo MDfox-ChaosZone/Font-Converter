@@ -3,7 +3,7 @@ mod i18n;
 
 use std::collections::HashSet;
 
-use fontbridge_shared::{
+use font_converter_shared::{
     BatchSummary, ConversionKind, ItemStatus, ProgressEvent, QueueItem, ScanResult, ScanWarning,
 };
 use i18n::{Locale, Message};
@@ -240,9 +240,9 @@ fn App() -> impl IntoView {
         <main class="app-shell">
             <header class="topbar">
                 <div class="brand">
-                    <div class="brand-mark">"FB"</div>
+                    <div class="brand-mark">"FC"</div>
                     <div>
-                        <h1>"FontBridge"</h1>
+                        <h1>"Font Converter"</h1>
                         <p>{move || locale.get().t(Message::Tagline)}</p>
                     </div>
                 </div>

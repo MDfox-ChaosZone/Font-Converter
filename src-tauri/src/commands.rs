@@ -1,9 +1,10 @@
-use fontbridge_shared::{QueueItem, ScanResult};
+use font_converter_core::scanner;
+use font_converter_shared::{QueueItem, ScanResult};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::{batch::BatchManager, scanner};
+use crate::batch::BatchManager;
 
 #[tauri::command]
 pub fn pick_files(app: AppHandle) -> Vec<String> {

@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use fontbridge_shared::{ConversionKind, ItemStatus, QueueItem, ScanResult, ScanWarning};
+use font_converter_shared::{ConversionKind, ItemStatus, QueueItem, ScanResult, ScanWarning};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
@@ -167,7 +167,7 @@ fn is_supported_extension(path: &Path) -> bool {
         })
 }
 
-pub(crate) fn conversion_for(path: &Path) -> Result<(ConversionKind, PathBuf), String> {
+pub fn conversion_for(path: &Path) -> Result<(ConversionKind, PathBuf), String> {
     let extension = path
         .extension()
         .and_then(|extension| extension.to_str())

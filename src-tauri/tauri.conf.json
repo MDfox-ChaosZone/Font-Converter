@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "FontBridge",
-  "version": "0.1.0",
-  "identifier": "io.github.mdfox-chaoszone.fontbridge",
-  "mainBinaryName": "fontbridge",
+  "productName": "Font Converter",
+  "version": "1.0.0",
+  "identifier": "io.github.mdfox-chaoszone.fontconverter",
+  "mainBinaryName": "font-converter",
   "build": {
     "beforeDevCommand": "trunk serve --config frontend/Trunk.toml",
     "devUrl": "http://localhost:1420",
@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "FontBridge",
+        "title": "Font Converter",
         "width": 1180,
         "height": 760,
         "minWidth": 760,
@@ -40,9 +40,9 @@
       "icons/icon.ico"
     ],
     "category": "Utility",
-    "shortDescription": "Convert TTF and OTF fonts to and from WOFF2",
+    "shortDescription": "Convert fonts between TTF, OTF, and WOFF2",
     "longDescription": "A cross-platform graphical interface for the Google WOFF2 encoder and decoder.",
-    "copyright": "Copyright © 2026 FontBridge contributors",
+    "copyright": "Copyright © 2026 Font Converter contributors",
     "windows": {
       "signCommand": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/sign-windows.ps1 %1"
     }

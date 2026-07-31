@@ -1,7 +1,5 @@
 mod batch;
 mod commands;
-mod converter;
-mod scanner;
 
 use batch::BatchManager;
 
@@ -19,5 +17,5 @@ pub fn run() {
             commands::open_output_folder,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running FontBridge");
+        .expect("error while running Font Converter");
 }

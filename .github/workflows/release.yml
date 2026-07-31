@@ -9,17 +9,15 @@ permissions:
   contents: write
 
 jobs:
-  publish:
+  build:
     env:
       APPLE_CERTIFICATE_AVAILABLE: ${{ secrets.APPLE_CERTIFICATE != '' }}
-      WINDOWS_CERTIFICATE_AVAILABLE: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-            bundles: msi,nsis
           - platform: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             bundles: appimage,deb
@@ -34,18 +32,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown,${{ matrix.target }}
+
       - uses: Swatinem/rust-cache@v2
         with:
           key: release-${{ matrix.target }}
+
       - uses: taiki-e/install-action@v2
         with:
           tool: trunk
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
+
+      - name: Install Tauri CLI
+        run: cargo install --locked tauri-cli
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
@@ -67,39 +68,69 @@ jobs:
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
-      - name: Import Windows signing certificate
-        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE_AVAILABLE == 'true'
-        env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        shell: pwsh
-        run: |
-          $certificatePath = Join-Path $env:RUNNER_TEMP "fontbridge.pfx"
-          [IO.File]::WriteAllBytes(
-            $certificatePath,
-            [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
-          )
-          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
-          $certificate = Import-PfxCertificate `
-            -FilePath $certificatePath `
-            -CertStoreLocation Cert:\CurrentUser\My `
-            -Password $password
-          "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
+      - name: Build Windows portable desktop executable
+        if: runner.os == 'Windows'
+        run: cargo tauri build --target ${{ matrix.target }} --no-bundle
 
-      - uses: tauri-apps/tauri-action@v1
+      - name: Stage Windows portable desktop executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Copy-Item "target\${{ matrix.target }}\release\font-converter.exe" "Font-Converter-windows-x64-portable.exe"
+
+      - name: Build Unix desktop bundles
+        if: runner.os != 'Windows'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
+        run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Upload Windows portable executable
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "FontBridge ${{ github.ref_name }}"
-          releaseBody: "Cross-platform desktop builds. Artifacts are unsigned unless the repository signing secrets are configured."
-          releaseDraft: true
+          name: windows-portable
+          path: Font-Converter-windows-x64-portable.exe
+          if-no-files-found: error
+
+      - name: Upload Linux bundles
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            target/${{ matrix.target }}/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+      - name: Upload macOS DMG
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Font Converter ${{ github.ref_name }}
+          draft: true
           prerelease: false
-          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          generate_release_notes: true
+          files: release-assets/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -8,14 +8,12 @@ use std::{
     thread,
 };
 
-use fontbridge_shared::{BatchSummary, ItemStatus, PROGRESS_EVENT, ProgressEvent, QueueItem};
+use font_converter_core::{converter, scanner};
+use font_converter_shared::{BatchSummary, ItemStatus, PROGRESS_EVENT, ProgressEvent, QueueItem};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
-use crate::{
-    converter::{self, ConversionError},
-    scanner,
-};
+use font_converter_core::converter::ConversionError;
 
 const MAX_PARALLEL_CONVERSIONS: usize = 4;
 

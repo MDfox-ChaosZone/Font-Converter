@@ -1,0 +1,17 @@
+[package]
+name = "font-converter-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "font-converter-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+ctrlc = "3"
+font-converter-core.workspace = true
+font-converter-shared.workspace = true
+serde.workspace = true
+serde_json.workspace = true

@@ -1,5 +1,5 @@
 [package]
-name = "fontbridge-frontend"
+name = "font-converter-frontend"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,7 +9,7 @@ js-sys = "0.3"
 leptos = { version = "0.8", features = ["csr"] }
 serde.workspace = true
 serde-wasm-bindgen = "0.6"
-fontbridge-shared.workspace = true
+font-converter-shared.workspace = true
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["KeyboardEvent", "Navigator", "PointerEvent", "Storage", "Window"] }

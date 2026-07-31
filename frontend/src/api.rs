@@ -1,4 +1,4 @@
-use fontbridge_shared::{ProgressEvent, QueueItem, ScanResult};
+use font_converter_shared::{ProgressEvent, QueueItem, ScanResult};
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};

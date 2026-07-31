@@ -1,6 +1,6 @@
 use web_sys::window;
 
-const STORAGE_KEY: &str = "fontbridge.locale";
+const STORAGE_KEY: &str = "font-converter.locale";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Locale {
@@ -134,7 +134,7 @@ impl Locale {
             (Self::ZhCn, Message::CommandFailed) => "操作失败",
             (Self::ZhCn, Message::SupportedFormats) => "支持的转换格式",
             (Self::ZhCn, Message::AutoDetectHint) => {
-                "WOFF2 文件包含字体轮廓类型信息，FontBridge 会据此自动转换为 TTF（TrueType）或 OTF（CFF/OpenType）。"
+                "WOFF2 文件包含字体轮廓类型信息，Font Converter 会据此自动转换为 TTF（TrueType）或 OTF（CFF/OpenType）。"
             }
             (Self::ZhCn, Message::ConversionDirection) => "转换方向",
             (Self::ZhCn, Message::ResizeColumn) => "拖动调整列宽",
@@ -188,7 +188,7 @@ impl Locale {
             (Self::En, Message::CommandFailed) => "Operation failed",
             (Self::En, Message::SupportedFormats) => "Supported conversion formats",
             (Self::En, Message::AutoDetectHint) => {
-                "WOFF2 stores its font outline type. FontBridge uses it to restore TTF (TrueType) or OTF (CFF/OpenType) automatically."
+                "WOFF2 stores its font outline type. Font Converter uses it to restore TTF (TrueType) or OTF (CFF/OpenType) automatically."
             }
             (Self::En, Message::ConversionDirection) => "Direction",
             (Self::En, Message::ResizeColumn) => "Drag to resize column",
