@@ -37,6 +37,12 @@ struct CancelArgs {
     batch_id: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OutputPathArgs {
+    output_path: String,
+}
+
 pub async fn pick_files() -> Result<Vec<String>, String> {
     invoke("pick_files", &EmptyArgs {}).await
 }
@@ -65,6 +71,10 @@ pub async fn start_conversion(items: Vec<QueueItem>) -> Result<String, String> {
 
 pub async fn cancel_conversion(batch_id: String) -> Result<bool, String> {
     invoke("cancel_conversion", &CancelArgs { batch_id }).await
+}
+
+pub async fn open_output_folder(output_path: String) -> Result<(), String> {
+    invoke("open_output_folder", &OutputPathArgs { output_path }).await
 }
 
 pub fn setup_progress_listener(callback: impl Fn(ProgressEvent) + 'static) {

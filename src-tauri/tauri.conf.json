@@ -16,8 +16,8 @@
       {
         "label": "main",
         "title": "FontBridge",
-        "width": 1040,
-        "height": 660,
+        "width": 1180,
+        "height": 760,
         "minWidth": 760,
         "minHeight": 520,
         "center": true,

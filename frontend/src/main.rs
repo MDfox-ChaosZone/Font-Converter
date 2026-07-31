@@ -10,7 +10,7 @@ use i18n::{Locale, Message};
 use leptos::{ev, leptos_dom::helpers::window_event_listener, prelude::*};
 use wasm_bindgen_futures::spawn_local;
 
-const MIN_COLUMN_WIDTHS: [i32; 5] = [68, 90, 120, 88, 56];
+const MIN_COLUMN_WIDTHS: [i32; 5] = [68, 120, 140, 88, 56];
 
 #[derive(Clone, Copy)]
 struct ColumnResize {
@@ -34,7 +34,7 @@ fn App() -> impl IntoView {
     let dragging = RwSignal::new(false);
     let output_directory = RwSignal::new(None::<String>);
     let error = RwSignal::new(None::<String>);
-    let column_widths = RwSignal::new([78_i32, 110, 170, 96, 62]);
+    let column_widths = RwSignal::new([78_i32, 160, 180, 96, 62]);
     let resizing = RwSignal::new(None::<ColumnResize>);
 
     let pointer_move = window_event_listener(ev::pointermove, move |event| {
@@ -204,6 +204,14 @@ fn App() -> impl IntoView {
         items.update(|items| items.retain(|item| item.id != id));
         summary.set(BatchSummary::from_items(&items.get_untracked()));
     });
+    let open_output_folder = Callback::new(move |output_path: String| {
+        error.set(None);
+        spawn_local(async move {
+            if let Err(message) = api::open_output_folder(output_path).await {
+                error.set(Some(message));
+            }
+        });
+    });
     let set_locale = move |next: Locale| {
         locale.set(next);
         next.save();
@@ -265,22 +273,21 @@ fn App() -> impl IntoView {
                             class="format-pills"
                             aria-label=move || locale.get().t(Message::SupportedFormats)
                         >
-                            <span>"TTF / OTF → WOFF2"</span>
-                            <span>"WOFF2 → TTF / OTF"</span>
-                        </div>
-                        <p class="direction-help">
-                            {move || locale.get().t(Message::AutoDetect)}
-                            <span
-                                class="help-tooltip"
-                                tabindex="0"
-                                aria-label=move || locale.get().t(Message::AutoDetectHint)
-                            >
-                                "?"
-                                <span role="tooltip">
-                                    {move || locale.get().t(Message::AutoDetectHint)}
+                            <span class="format-pill">"TTF / OTF → WOFF2"</span>
+                            <span class="reverse-format">
+                                <span class="format-pill">"WOFF2 → TTF / OTF"</span>
+                                <span
+                                    class="help-tooltip"
+                                    tabindex="0"
+                                    aria-label=move || locale.get().t(Message::AutoDetectHint)
+                                >
+                                    "?"
+                                    <span role="tooltip">
+                                        {move || locale.get().t(Message::AutoDetectHint)}
+                                    </span>
                                 </span>
                             </span>
-                        </p>
+                        </div>
 
                         <div class="picker-actions">
                             <button
@@ -500,7 +507,13 @@ fn App() -> impl IntoView {
                                     item.id, item.status, item.output_bytes, item.message
                                 )
                                 children=move |item| view! {
-                                    <QueueRow locale item active_batch on_remove=remove_item />
+                                    <QueueRow
+                                        locale
+                                        item
+                                        active_batch
+                                        on_remove=remove_item
+                                        on_open_output=open_output_folder
+                                    />
                                 }
                             />
                         </div>
@@ -547,12 +560,15 @@ fn QueueRow(
     item: QueueItem,
     active_batch: RwSignal<Option<String>>,
     on_remove: Callback<String>,
+    on_open_output: Callback<String>,
 ) -> impl IntoView {
     let status_class = format!("status {}", status_class(&item.status));
     let input_name = file_name(&item.input_path);
     let size_change = format_size_change(item.input_bytes, item.output_bytes);
     let status = item.status.clone();
     let item_id = item.id.clone();
+    let output_path = item.output_path.clone();
+    let can_open_output = item.status == ItemStatus::Succeeded;
     let input_title = display_path(&item.input_path);
     let output_title = display_path(&item.output_path);
     view! {
@@ -580,16 +596,28 @@ fn QueueRow(
             <span class=status_class aria-live="polite">
                 {move || status_label(locale.get(), &status)}
             </span>
-            <button
-                class="remove-item"
-                type="button"
-                disabled=move || active_batch.get().is_some()
-                title=move || locale.get().t(Message::Remove)
-                aria-label=move || locale.get().t(Message::Remove)
-                on:click=move |_| on_remove.run(item_id.clone())
-            >
-                <span aria-hidden="true">"×"</span>
-            </button>
+            <div class="row-actions">
+                <button
+                    class="open-output"
+                    type="button"
+                    disabled=!can_open_output
+                    title=move || locale.get().t(Message::OpenOutputFolder)
+                    aria-label=move || locale.get().t(Message::OpenOutputFolder)
+                    on:click=move |_| on_open_output.run(output_path.clone())
+                >
+                    <span aria-hidden="true">"▰"</span>
+                </button>
+                <button
+                    class="remove-item"
+                    type="button"
+                    disabled=move || active_batch.get().is_some()
+                    title=move || locale.get().t(Message::Remove)
+                    aria-label=move || locale.get().t(Message::Remove)
+                    on:click=move |_| on_remove.run(item_id.clone())
+                >
+                    <span aria-hidden="true">"×"</span>
+                </button>
+            </div>
         </article>
     }
 }

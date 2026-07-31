@@ -177,7 +177,7 @@ h1 {
 }
 
 .drop-content {
-  width: min(100%, 300px);
+  width: min(100%, 330px);
 }
 
 .drop-icon {
@@ -213,7 +213,8 @@ h1 {
   gap: 6px;
 }
 
-.format-pills span {
+.format-pills .format-pill {
+  display: inline-block;
   padding: 4px 8px;
   border: 1px solid #e0e2ff;
   border-radius: 999px;
@@ -224,14 +225,12 @@ h1 {
   white-space: nowrap;
 }
 
-.direction-help {
+.reverse-format {
   display: flex;
-  margin-top: 8px;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  color: #667085;
-  font-size: 10px;
+  min-width: 0;
 }
 
 .help-tooltip {
@@ -630,9 +629,11 @@ h1 {
 .queue-row {
   display: grid;
   grid-template-columns:
-    var(--direction-column) var(--name-column) var(--path-column)
+    var(--direction-column)
+    minmax(var(--name-column), 0.9fr)
+    minmax(var(--path-column), 1.3fr)
     var(--size-column) var(--status-column)
-    28px;
+    62px;
   align-items: center;
   gap: 10px;
 }
@@ -698,15 +699,22 @@ h1 {
   border-top: 1px solid #f2f4f7;
 }
 
+.queue-row > * {
+  min-width: 0;
+}
+
 .direction-cell {
   min-width: 0;
 }
 
 .font-name-cell {
   min-width: 0;
+  overflow: hidden;
 }
 
 .font-name-cell strong {
+  display: block;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   font-size: 11px;
@@ -811,7 +819,14 @@ h1 {
   background: #fef3f2;
 }
 
-.remove-item {
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.remove-item,
+.open-output {
   display: grid;
   width: 28px;
   height: 28px;
@@ -820,18 +835,32 @@ h1 {
   place-items: center;
   border: 0;
   border-radius: 8px;
+  cursor: pointer;
+}
+
+.remove-item {
   color: #b42318;
   background: #fff1f0;
   font-size: 17px;
   line-height: 1;
-  cursor: pointer;
+}
+
+.open-output {
+  color: #4e55ca;
+  background: #eef0ff;
+  font-size: 12px;
 }
 
 .remove-item:hover:not(:disabled) {
   background: #fee4e2;
 }
 
-.remove-item:disabled {
+.open-output:hover:not(:disabled) {
+  background: #e0e2ff;
+}
+
+.remove-item:disabled,
+.open-output:disabled {
   color: #98a2b3;
   background: #f2f4f7;
   cursor: not-allowed;
@@ -901,7 +930,7 @@ h1 {
 
   .queue-head,
   .queue-row {
-    grid-template-columns: 72px minmax(100px, 0.8fr) minmax(140px, 1.2fr) 64px 30px;
+    grid-template-columns: 72px minmax(120px, 0.9fr) minmax(140px, 1.2fr) 64px 62px;
   }
 
   .queue-head .size-change,

@@ -40,6 +40,7 @@ pub enum Message {
     Status,
     Actions,
     Remove,
+    OpenOutputFolder,
     Queued,
     Running,
     Succeeded,
@@ -51,7 +52,6 @@ pub enum Message {
     NoFonts,
     CommandFailed,
     SupportedFormats,
-    AutoDetect,
     AutoDetectHint,
     ConversionDirection,
     ResizeColumn,
@@ -119,6 +119,7 @@ impl Locale {
             (Self::ZhCn, Message::Status) => "状态",
             (Self::ZhCn, Message::Actions) => "操作",
             (Self::ZhCn, Message::Remove) => "移除",
+            (Self::ZhCn, Message::OpenOutputFolder) => "打开输出文件夹",
             (Self::ZhCn, Message::Queued) => "等待",
             (Self::ZhCn, Message::Running) => "转换中",
             (Self::ZhCn, Message::Succeeded) => "成功",
@@ -130,7 +131,6 @@ impl Locale {
             (Self::ZhCn, Message::NoFonts) => "没有发现可转换的字体文件",
             (Self::ZhCn, Message::CommandFailed) => "操作失败",
             (Self::ZhCn, Message::SupportedFormats) => "支持的转换格式",
-            (Self::ZhCn, Message::AutoDetect) => "自动识别转换方向",
             (Self::ZhCn, Message::AutoDetectHint) => {
                 "WOFF2 文件包含字体轮廓类型信息，FontBridge 会据此自动转换为 TTF（TrueType）或 OTF（CFF/OpenType）。"
             }
@@ -170,6 +170,7 @@ impl Locale {
             (Self::En, Message::Status) => "Status",
             (Self::En, Message::Actions) => "Actions",
             (Self::En, Message::Remove) => "Remove",
+            (Self::En, Message::OpenOutputFolder) => "Open output folder",
             (Self::En, Message::Queued) => "Queued",
             (Self::En, Message::Running) => "Converting",
             (Self::En, Message::Succeeded) => "Succeeded",
@@ -181,7 +182,6 @@ impl Locale {
             (Self::En, Message::NoFonts) => "No convertible font files were found",
             (Self::En, Message::CommandFailed) => "Operation failed",
             (Self::En, Message::SupportedFormats) => "Supported conversion formats",
-            (Self::En, Message::AutoDetect) => "Conversion direction is detected automatically",
             (Self::En, Message::AutoDetectHint) => {
                 "WOFF2 stores its font outline type. FontBridge uses it to restore TTF (TrueType) or OTF (CFF/OpenType) automatically."
             }

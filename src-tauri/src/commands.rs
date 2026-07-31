@@ -1,4 +1,5 @@
 use fontbridge_shared::{QueueItem, ScanResult};
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -50,4 +51,47 @@ pub fn start_conversion(
 #[tauri::command(rename_all = "camelCase")]
 pub fn cancel_conversion(manager: State<'_, BatchManager>, batch_id: String) -> bool {
     manager.cancel(&batch_id)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn open_output_folder(output_path: String) -> Result<(), String> {
+    let directory = output_parent(Path::new(&output_path))?;
+
+    #[cfg(target_os = "windows")]
+    let mut command = std::process::Command::new("explorer.exe");
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut command = std::process::Command::new("xdg-open");
+
+    command
+        .arg(&directory)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Cannot open output folder: {error}"))
+}
+
+fn output_parent(output_path: &Path) -> Result<PathBuf, String> {
+    if !output_path.is_file() {
+        return Err("The converted output file no longer exists".into());
+    }
+    output_path
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "The output file has no parent folder".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::output_parent;
+
+    #[test]
+    fn output_parent_requires_an_existing_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("font.woff2");
+        std::fs::write(&output, b"fixture").unwrap();
+
+        assert_eq!(output_parent(&output).unwrap(), directory.path());
+        assert!(output_parent(&directory.path().join("missing.woff2")).is_err());
+    }
 }
