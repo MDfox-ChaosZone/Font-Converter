@@ -471,24 +471,18 @@ h1 {
 }
 
 .queue-title-line {
-  gap: 7px;
+  flex-wrap: wrap;
+  gap: 5px 10px;
 }
 
 .queue-toolbar h2 {
   font-size: 15px;
 }
 
-.total-count {
-  display: inline-grid;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  place-items: center;
-  border-radius: 999px;
-  color: #4e55ca;
-  background: #eef0ff;
-  font-size: 10px;
-  font-weight: 750;
+.queue-title-line small {
+  color: #98a2b3;
+  font-size: 9px;
+  font-weight: 500;
 }
 
 .completion {

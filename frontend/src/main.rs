@@ -366,7 +366,7 @@ fn App() -> impl IntoView {
                         <div class="queue-overview">
                             <div class="queue-title-line">
                                 <h2>{move || locale.get().t(Message::Queue)}</h2>
-                                <span class="total-count">{move || items.read().len()}</span>
+                                <small>{move || locale.get().t(Message::ConversionTimeHint)}</small>
                             </div>
                             <p class="completion" role="status" aria-live="polite">
                                 {move || locale.get().t(Message::Completed)}

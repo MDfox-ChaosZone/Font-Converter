@@ -28,6 +28,7 @@ pub enum Message {
     ClearCompleted,
     ClearAll,
     Queue,
+    ConversionTimeHint,
     Completed,
     EmptyTitle,
     EmptyHint,
@@ -89,7 +90,7 @@ impl Locale {
 
     pub fn t(self, message: Message) -> &'static str {
         match (self, message) {
-            (Self::ZhCn, Message::Tagline) => "快速、安全地转换 TTF、OTF 与 WOFF2 字体",
+            (Self::ZhCn, Message::Tagline) => "轻松搞定TTF/OTF和WOFF2字体格式互转",
             (Self::ZhCn, Message::DropTitle) => "拖放字体或文件夹到这里",
             (Self::ZhCn, Message::DropHint) => "递归扫描 .ttf、.otf 和 .woff2；自动识别转换方向",
             (Self::ZhCn, Message::AddFonts) => "选择文件/文件夹",
@@ -107,6 +108,7 @@ impl Locale {
             (Self::ZhCn, Message::ClearCompleted) => "清除已完成",
             (Self::ZhCn, Message::ClearAll) => "全部清除",
             (Self::ZhCn, Message::Queue) => "转换队列",
+            (Self::ZhCn, Message::ConversionTimeHint) => "TTF/OTF➡️WOFF2通常需要十余秒",
             (Self::ZhCn, Message::Completed) => "已完成",
             (Self::ZhCn, Message::EmptyTitle) => "尚未添加字体",
             (Self::ZhCn, Message::EmptyHint) => "从左侧添加或直接拖入字体",
@@ -138,7 +140,7 @@ impl Locale {
             (Self::ZhCn, Message::ResizeColumn) => "拖动调整列宽",
             (Self::ZhCn, Message::Language) => "语言",
 
-            (Self::En, Message::Tagline) => "Fast, safe TTF, OTF, and WOFF2 conversion",
+            (Self::En, Message::Tagline) => "Effortless TTF/OTF and WOFF2 font conversion",
             (Self::En, Message::DropTitle) => "Drop fonts or folders here",
             (Self::En, Message::DropHint) => {
                 "Scans .ttf, .otf, and .woff2 recursively; detects direction automatically"
@@ -158,6 +160,9 @@ impl Locale {
             (Self::En, Message::ClearCompleted) => "Clear completed",
             (Self::En, Message::ClearAll) => "Clear all",
             (Self::En, Message::Queue) => "Conversion queue",
+            (Self::En, Message::ConversionTimeHint) => {
+                "TTF/OTF ➡️ WOFF2 usually takes over ten seconds"
+            }
             (Self::En, Message::Completed) => "Completed",
             (Self::En, Message::EmptyTitle) => "No fonts added yet",
             (Self::En, Message::EmptyHint) => "Add fonts on the left or drop them here",
