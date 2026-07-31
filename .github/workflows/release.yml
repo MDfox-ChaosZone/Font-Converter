@@ -12,6 +12,7 @@ jobs:
   build:
     env:
       APPLE_CERTIFICATE_AVAILABLE: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      APPLE_SIGNING_AVAILABLE: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -80,10 +81,10 @@ jobs:
       - name: Build Unix desktop bundles
         if: runner.os != 'Windows'
         env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_AVAILABLE == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ env.APPLE_SIGNING_AVAILABLE == 'true' && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ env.APPLE_SIGNING_AVAILABLE == 'true' && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ env.APPLE_SIGNING_AVAILABLE == 'true' && secrets.APPLE_TEAM_ID || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
