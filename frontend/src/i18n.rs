@@ -108,7 +108,7 @@ impl Locale {
             (Self::ZhCn, Message::ClearCompleted) => "清除已完成",
             (Self::ZhCn, Message::ClearAll) => "全部清除",
             (Self::ZhCn, Message::Queue) => "转换队列",
-            (Self::ZhCn, Message::ConversionTimeHint) => "TTF/OTF➡️WOFF2通常需要十余秒",
+            (Self::ZhCn, Message::ConversionTimeHint) => "TTF/OTF→WOFF2通常需要十余秒",
             (Self::ZhCn, Message::Completed) => "已完成",
             (Self::ZhCn, Message::EmptyTitle) => "尚未添加字体",
             (Self::ZhCn, Message::EmptyHint) => "从左侧添加或直接拖入字体",
@@ -161,7 +161,7 @@ impl Locale {
             (Self::En, Message::ClearAll) => "Clear all",
             (Self::En, Message::Queue) => "Conversion queue",
             (Self::En, Message::ConversionTimeHint) => {
-                "TTF/OTF ➡️ WOFF2 usually takes over ten seconds"
+                "TTF/OTF → WOFF2 usually takes over ten seconds"
             }
             (Self::En, Message::Completed) => "Completed",
             (Self::En, Message::EmptyTitle) => "No fonts added yet",
