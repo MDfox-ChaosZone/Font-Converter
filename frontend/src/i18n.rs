@@ -1,6 +1,6 @@
 use web_sys::window;
 
-const STORAGE_KEY: &str = "ttf2woff2-gui.locale";
+const STORAGE_KEY: &str = "fontbridge.locale";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Locale {
@@ -13,20 +13,35 @@ pub enum Message {
     Tagline,
     DropTitle,
     DropHint,
+    AddFonts,
     SelectFiles,
+    SelectFilesHint,
     SelectFolder,
+    SelectFolderHint,
+    Scanning,
+    OutputFolder,
+    SourceFolder,
+    ChooseOutputFolder,
+    ResetOutputFolder,
     Start,
     Cancel,
     ClearCompleted,
+    ClearAll,
+    Queue,
+    ConversionTimeHint,
+    Completed,
     EmptyTitle,
     EmptyHint,
     File,
+    Path,
     Output,
     InputSize,
     OutputSize,
+    SizeChange,
     Status,
     Actions,
     Remove,
+    OpenOutputFolder,
     Queued,
     Running,
     Succeeded,
@@ -37,8 +52,10 @@ pub enum Message {
     Warnings,
     NoFonts,
     CommandFailed,
-    SafeOutput,
     SupportedFormats,
+    AutoDetectHint,
+    ConversionDirection,
+    ResizeColumn,
     Language,
 }
 
@@ -73,23 +90,38 @@ impl Locale {
 
     pub fn t(self, message: Message) -> &'static str {
         match (self, message) {
-            (Self::ZhCn, Message::Tagline) => "快速、安全地转换 TTF、OTF 与 WOFF2 字体",
+            (Self::ZhCn, Message::Tagline) => "轻松搞定TTF/OTF和WOFF2字体格式互转",
             (Self::ZhCn, Message::DropTitle) => "拖放字体或文件夹到这里",
             (Self::ZhCn, Message::DropHint) => "递归扫描 .ttf、.otf 和 .woff2；自动识别转换方向",
+            (Self::ZhCn, Message::AddFonts) => "选择文件/文件夹",
             (Self::ZhCn, Message::SelectFiles) => "选择文件",
+            (Self::ZhCn, Message::SelectFilesHint) => "添加一个或多个字体文件",
             (Self::ZhCn, Message::SelectFolder) => "选择文件夹",
+            (Self::ZhCn, Message::SelectFolderHint) => "递归扫描文件夹中的字体",
+            (Self::ZhCn, Message::Scanning) => "正在扫描字体…",
+            (Self::ZhCn, Message::OutputFolder) => "输出文件夹",
+            (Self::ZhCn, Message::SourceFolder) => "源文件所在文件夹（默认）",
+            (Self::ZhCn, Message::ChooseOutputFolder) => "选择输出文件夹",
+            (Self::ZhCn, Message::ResetOutputFolder) => "恢复到源文件夹",
             (Self::ZhCn, Message::Start) => "开始转换",
             (Self::ZhCn, Message::Cancel) => "取消",
             (Self::ZhCn, Message::ClearCompleted) => "清除已完成",
-            (Self::ZhCn, Message::EmptyTitle) => "转换队列为空",
-            (Self::ZhCn, Message::EmptyHint) => "添加 TTF、OTF 或 WOFF2 文件开始使用",
-            (Self::ZhCn, Message::File) => "源文件",
+            (Self::ZhCn, Message::ClearAll) => "全部清除",
+            (Self::ZhCn, Message::Queue) => "转换队列",
+            (Self::ZhCn, Message::ConversionTimeHint) => "TTF/OTF→WOFF2通常需要十余秒",
+            (Self::ZhCn, Message::Completed) => "已完成",
+            (Self::ZhCn, Message::EmptyTitle) => "尚未添加字体",
+            (Self::ZhCn, Message::EmptyHint) => "从左侧添加或直接拖入字体",
+            (Self::ZhCn, Message::File) => "字体名称",
+            (Self::ZhCn, Message::Path) => "路径",
             (Self::ZhCn, Message::Output) => "输出",
             (Self::ZhCn, Message::InputSize) => "原始大小",
             (Self::ZhCn, Message::OutputSize) => "转换后大小",
+            (Self::ZhCn, Message::SizeChange) => "体积变化",
             (Self::ZhCn, Message::Status) => "状态",
             (Self::ZhCn, Message::Actions) => "操作",
             (Self::ZhCn, Message::Remove) => "移除",
+            (Self::ZhCn, Message::OpenOutputFolder) => "打开输出文件夹",
             (Self::ZhCn, Message::Queued) => "等待",
             (Self::ZhCn, Message::Running) => "转换中",
             (Self::ZhCn, Message::Succeeded) => "成功",
@@ -100,29 +132,50 @@ impl Locale {
             (Self::ZhCn, Message::Warnings) => "扫描提示",
             (Self::ZhCn, Message::NoFonts) => "没有发现可转换的字体文件",
             (Self::ZhCn, Message::CommandFailed) => "操作失败",
-            (Self::ZhCn, Message::SafeOutput) => "输出保存在源文件旁，绝不覆盖已有文件",
             (Self::ZhCn, Message::SupportedFormats) => "支持的转换格式",
+            (Self::ZhCn, Message::AutoDetectHint) => {
+                "WOFF2 文件包含字体轮廓类型信息，FontBridge 会据此自动转换为 TTF（TrueType）或 OTF（CFF/OpenType）。"
+            }
+            (Self::ZhCn, Message::ConversionDirection) => "转换方向",
+            (Self::ZhCn, Message::ResizeColumn) => "拖动调整列宽",
             (Self::ZhCn, Message::Language) => "语言",
 
-            (Self::En, Message::Tagline) => "Fast, safe TTF, OTF, and WOFF2 conversion",
+            (Self::En, Message::Tagline) => "Effortless TTF/OTF and WOFF2 font conversion",
             (Self::En, Message::DropTitle) => "Drop fonts or folders here",
             (Self::En, Message::DropHint) => {
                 "Scans .ttf, .otf, and .woff2 recursively; detects direction automatically"
             }
+            (Self::En, Message::AddFonts) => "Select files/folder",
             (Self::En, Message::SelectFiles) => "Select files",
+            (Self::En, Message::SelectFilesHint) => "Add one or more font files",
             (Self::En, Message::SelectFolder) => "Select folder",
+            (Self::En, Message::SelectFolderHint) => "Scan fonts in a folder recursively",
+            (Self::En, Message::Scanning) => "Scanning fonts…",
+            (Self::En, Message::OutputFolder) => "Output folder",
+            (Self::En, Message::SourceFolder) => "Beside each source (default)",
+            (Self::En, Message::ChooseOutputFolder) => "Choose output folder",
+            (Self::En, Message::ResetOutputFolder) => "Use source folders",
             (Self::En, Message::Start) => "Start conversion",
             (Self::En, Message::Cancel) => "Cancel",
             (Self::En, Message::ClearCompleted) => "Clear completed",
-            (Self::En, Message::EmptyTitle) => "The conversion queue is empty",
-            (Self::En, Message::EmptyHint) => "Add TTF, OTF, or WOFF2 files to get started",
-            (Self::En, Message::File) => "Source",
+            (Self::En, Message::ClearAll) => "Clear all",
+            (Self::En, Message::Queue) => "Conversion queue",
+            (Self::En, Message::ConversionTimeHint) => {
+                "TTF/OTF → WOFF2 usually takes over ten seconds"
+            }
+            (Self::En, Message::Completed) => "Completed",
+            (Self::En, Message::EmptyTitle) => "No fonts added yet",
+            (Self::En, Message::EmptyHint) => "Add fonts on the left or drop them here",
+            (Self::En, Message::File) => "Font name",
+            (Self::En, Message::Path) => "Path",
             (Self::En, Message::Output) => "Output",
             (Self::En, Message::InputSize) => "Input size",
             (Self::En, Message::OutputSize) => "Output size",
+            (Self::En, Message::SizeChange) => "Size change",
             (Self::En, Message::Status) => "Status",
             (Self::En, Message::Actions) => "Actions",
             (Self::En, Message::Remove) => "Remove",
+            (Self::En, Message::OpenOutputFolder) => "Open output folder",
             (Self::En, Message::Queued) => "Queued",
             (Self::En, Message::Running) => "Converting",
             (Self::En, Message::Succeeded) => "Succeeded",
@@ -133,10 +186,12 @@ impl Locale {
             (Self::En, Message::Warnings) => "Scan notices",
             (Self::En, Message::NoFonts) => "No convertible font files were found",
             (Self::En, Message::CommandFailed) => "Operation failed",
-            (Self::En, Message::SafeOutput) => {
-                "Outputs are saved beside sources; existing files are never overwritten"
-            }
             (Self::En, Message::SupportedFormats) => "Supported conversion formats",
+            (Self::En, Message::AutoDetectHint) => {
+                "WOFF2 stores its font outline type. FontBridge uses it to restore TTF (TrueType) or OTF (CFF/OpenType) automatically."
+            }
+            (Self::En, Message::ConversionDirection) => "Direction",
+            (Self::En, Message::ResizeColumn) => "Drag to resize column",
             (Self::En, Message::Language) => "Language",
         }
     }

@@ -4,16 +4,16 @@ use std::{
     path::Path,
 };
 
+use fontbridge_shared::ConversionKind;
 use tempfile::Builder;
-use ttf2woff2_gui_shared::ConversionKind;
 
 const BROTLI_QUALITY: i32 = 11;
 const ALLOW_TRANSFORMS: bool = true;
 const MAX_DECOMPRESSED_BYTES: usize = 128 * 1024 * 1024;
 
 unsafe extern "C" {
-    fn ttf2woff2_google_max_compressed_size(input: *const u8, input_length: usize) -> usize;
-    fn ttf2woff2_google_convert(
+    fn fontbridge_google_max_compressed_size(input: *const u8, input_length: usize) -> usize;
+    fn fontbridge_google_convert(
         input: *const u8,
         input_length: usize,
         output: *mut u8,
@@ -21,8 +21,8 @@ unsafe extern "C" {
         brotli_quality: i32,
         allow_transforms: i32,
     ) -> i32;
-    fn ttf2woff2_google_decompressed_size(input: *const u8, input_length: usize) -> usize;
-    fn ttf2woff2_google_decompress(
+    fn fontbridge_google_decompressed_size(input: *const u8, input_length: usize) -> usize;
+    fn fontbridge_google_decompress(
         input: *const u8,
         input_length: usize,
         output: *mut u8,
@@ -63,7 +63,7 @@ pub fn convert(
         .ok_or_else(|| ConversionError::Failed("Output path has no parent directory".into()))?;
 
     let mut temporary = Builder::new()
-        .prefix(".ttf2woff2-gui-")
+        .prefix(".fontbridge-")
         .suffix(".tmp")
         .tempfile_in(parent)
         .map_err(failed)?;
@@ -92,7 +92,7 @@ fn decode(input: &[u8]) -> Result<Vec<u8>, ConversionError> {
     }
 
     // SAFETY: `input` remains alive for the call and exposes exactly `input.len()` bytes.
-    let capacity = unsafe { ttf2woff2_google_decompressed_size(input.as_ptr(), input.len()) };
+    let capacity = unsafe { fontbridge_google_decompressed_size(input.as_ptr(), input.len()) };
     if capacity == 0 || capacity > MAX_DECOMPRESSED_BYTES {
         return Err(ConversionError::Failed(
             "The WOFF2 output size is invalid or exceeds the 128 MB safety limit".into(),
@@ -104,7 +104,7 @@ fn decode(input: &[u8]) -> Result<Vec<u8>, ConversionError> {
     // SAFETY: the input and output buffers remain alive, the writable capacity is
     // supplied exactly, and the C++ wrapper catches exceptions at the ABI boundary.
     let succeeded = unsafe {
-        ttf2woff2_google_decompress(
+        fontbridge_google_decompress(
             input.as_ptr(),
             input.len(),
             output.as_mut_ptr(),
@@ -128,7 +128,7 @@ fn encode(input: &[u8]) -> Result<Vec<u8>, ConversionError> {
     }
 
     // SAFETY: `input` remains alive for the call and exposes exactly `input.len()` bytes.
-    let capacity = unsafe { ttf2woff2_google_max_compressed_size(input.as_ptr(), input.len()) };
+    let capacity = unsafe { fontbridge_google_max_compressed_size(input.as_ptr(), input.len()) };
     if capacity == 0 || capacity > isize::MAX as usize {
         return Err(ConversionError::Failed(
             "Google WOFF2 could not determine a safe output size".into(),
@@ -140,7 +140,7 @@ fn encode(input: &[u8]) -> Result<Vec<u8>, ConversionError> {
     // SAFETY: both buffers remain alive for the call, `output` has `capacity` writable
     // bytes, and the C++ wrapper catches exceptions before they can cross the ABI.
     let succeeded = unsafe {
-        ttf2woff2_google_convert(
+        fontbridge_google_convert(
             input.as_ptr(),
             input.len(),
             output.as_mut_ptr(),
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn real_font_fixture_is_deterministic_when_configured() {
-        let Some(font) = std::env::var_os("TTF2WOFF2_TEST_FONT") else {
+        let Some(font) = std::env::var_os("FONTBRIDGE_TEST_FONT") else {
             return;
         };
         let directory = tempfile::tempdir().unwrap();
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn real_font_round_trips_when_configured() {
-        let Some(font) = std::env::var_os("TTF2WOFF2_TEST_FONT") else {
+        let Some(font) = std::env::var_os("FONTBRIDGE_TEST_FONT") else {
             return;
         };
         let original = fs::read(&font).unwrap();
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn real_otf_round_trips_when_configured() {
-        let Some(font) = std::env::var_os("TTF2WOFF2_TEST_OTF") else {
+        let Some(font) = std::env::var_os("FONTBRIDGE_TEST_OTF") else {
             return;
         };
         let original = fs::read(&font).unwrap();

@@ -1,10 +1,10 @@
-# ttf2woff2-GUI
+# FontBridge
 
 [English](#english) · [简体中文](#简体中文)
 
 ## 简体中文
 
-`ttf2woff2-GUI` 是基于 Tauri 2 和 Leptos 的跨平台桌面字体转换器。界面、文件处理和转换流程均使用 Rust 实现，转换核心采用 Google 官方
+`FontBridge` 是基于 Tauri 2 和 Leptos 的跨平台桌面字体转换器。界面、文件处理和转换流程均使用 Rust 实现，转换核心采用 Google 官方
 [`google/woff2`](https://github.com/google/woff2) C++ 参考实现及其固定版本的 Brotli 子模块。
 
 ### 功能
@@ -14,9 +14,9 @@
 - 递归扫描子目录，不跟随目录符号链接。
 - 自动执行 TTF→WOFF2、OTF→WOFF2、WOFF2→TTF 或 WOFF2→OTF。
 - 在源字体旁生成转换结果，绝不覆盖已有文件。
-- 顺序后台转换、逐项进度、错误隔离和批次取消。
+- 自动并行后台转换（最多 4 个字体任务）、逐项进度、错误隔离和批次取消。
 - 任务状态实时更新，转换完成后显示输入与输出文件大小，并可逐项移除队列条目。
-- 默认使用 Brotli 质量 11 和单线程编码，优先获得最小且可复现的输出。
+- 默认使用 Brotli 质量 11；每个字体的编码保持单线程，队列自动并行处理最多 4 个字体。
 - 简体中文/英文界面，语言选择自动保存。
 - Windows x64、Linux x64、macOS Intel 和 Apple Silicon 构建。
 
@@ -59,14 +59,14 @@ cargo tauri dev
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p ttf2woff2-gui-shared -p ttf2woff2-gui
-cargo clippy -p ttf2woff2-gui-shared -p ttf2woff2-gui --all-targets -- -D warnings
-cargo check -p ttf2woff2-gui-frontend --target wasm32-unknown-unknown
+cargo test -p fontbridge-shared -p fontbridge
+cargo clippy -p fontbridge-shared -p fontbridge --all-targets -- -D warnings
+cargo check -p fontbridge-frontend --target wasm32-unknown-unknown
 trunk build --config frontend/Trunk.toml --release
 ```
 
-可通过 `TTF2WOFF2_TEST_FONT=/path/to/font.ttf` 和
-`TTF2WOFF2_TEST_OTF=/path/to/font.otf` 启用真实字体的双向转换测试。CI 从固定提交下载带
+可通过 `FONTBRIDGE_TEST_FONT=/path/to/font.ttf` 和
+`FONTBRIDGE_TEST_OTF=/path/to/font.otf` 启用真实字体的双向转换测试。CI 从固定提交下载带
 OFL 许可的 Abel TTF 和 Source Code Pro OTF 测试字体。
 
 ### 上游更新
@@ -82,7 +82,7 @@ git submodule update --init --recursive
 git -C vendor/woff2 fetch origin
 git -C vendor/woff2 checkout <需要验证的提交>
 git -C vendor/woff2 submodule update --init --recursive
-cargo test -p ttf2woff2-gui
+cargo test -p fontbridge
 ```
 
 确认四平台 CI 均通过后，提交新的 submodule 指针。若上游 API 发生变化，只需适配
@@ -95,7 +95,8 @@ cargo test -p ttf2woff2-gui
 
 - 质量 `11`：上游支持范围为 `0–11`；数值越高，通常输出越小，但编码耗时越长。
 - `glyf/loca` 转换：按 WOFF2 规范重组 TrueType 字形表；CFF/OTF 没有这些表，会自动跳过。
-- 单线程：保证相同输入和版本产生确定性输出；任务队列也会逐个处理字体，控制内存占用。
+- 单次字体编码保持单线程，以保证相同输入和版本产生确定性输出；队列会根据可用 CPU 自动并行，
+  同时最多处理 4 个字体，以兼顾速度和内存占用。
 
 首版暂不在界面中暴露这些高级参数，以保持输出行为稳定。
 
@@ -115,7 +116,7 @@ cargo test -p ttf2woff2-gui
 
 ## English
 
-`ttf2woff2-GUI` is a cross-platform Tauri 2 + Leptos desktop application that converts TTF and OTF
+`FontBridge` is a cross-platform Tauri 2 + Leptos desktop application that converts TTF and OTF
 fonts to WOFF2 and decompresses WOFF2 back to its TrueType or CFF/OpenType SFNT form. The UI,
 filesystem workflow, and conversion orchestration are written in Rust. The
 encoder is Google's official C++ [`google/woff2`](https://github.com/google/woff2) reference
@@ -124,8 +125,9 @@ implementation, pinned with its Brotli dependency as a Git submodule.
 Drag files or recursively scanned folders into the application, review the automatically detected
 conversion direction, then start a safe background conversion. Outputs are written beside their
 source fonts and existing files are never overwritten. Encoding uses Brotli quality 11, the WOFF2
-`glyf/loca` transform when applicable, and a single deterministic compression thread. See the
-Chinese section above for development, testing, release, and signing commands.
+`glyf/loca` transform when applicable, and a single deterministic compression thread per font.
+The queue automatically processes up to four fonts concurrently. See the Chinese section above
+for development, testing, release, and signing commands.
 
 ## License and attribution
 

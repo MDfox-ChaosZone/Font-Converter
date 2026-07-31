@@ -16,7 +16,8 @@ pub fn run() {
             commands::collect_inputs,
             commands::start_conversion,
             commands::cancel_conversion,
+            commands::open_output_folder,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running ttf2woff2-GUI");
+        .expect("error while running FontBridge");
 }

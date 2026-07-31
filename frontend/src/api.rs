@@ -1,6 +1,6 @@
+use fontbridge_shared::{ProgressEvent, QueueItem, ScanResult};
 use js_sys::{Function, Promise};
-use serde::{Serialize, de::DeserializeOwned};
-use ttf2woff2_gui_shared::{ProgressEvent, QueueItem, ScanResult};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 
@@ -20,8 +20,10 @@ extern "C" {
 struct EmptyArgs {}
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PathsArgs {
     paths: Vec<String>,
+    output_directory: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -35,6 +37,12 @@ struct CancelArgs {
     batch_id: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OutputPathArgs {
+    output_path: String,
+}
+
 pub async fn pick_files() -> Result<Vec<String>, String> {
     invoke("pick_files", &EmptyArgs {}).await
 }
@@ -43,8 +51,18 @@ pub async fn pick_folder() -> Result<Vec<String>, String> {
     invoke("pick_folder", &EmptyArgs {}).await
 }
 
-pub async fn collect_inputs(paths: Vec<String>) -> Result<ScanResult, String> {
-    invoke("collect_inputs", &PathsArgs { paths }).await
+pub async fn collect_inputs(
+    paths: Vec<String>,
+    output_directory: Option<String>,
+) -> Result<ScanResult, String> {
+    invoke(
+        "collect_inputs",
+        &PathsArgs {
+            paths,
+            output_directory,
+        },
+    )
+    .await
 }
 
 pub async fn start_conversion(items: Vec<QueueItem>) -> Result<String, String> {
@@ -53,6 +71,10 @@ pub async fn start_conversion(items: Vec<QueueItem>) -> Result<String, String> {
 
 pub async fn cancel_conversion(batch_id: String) -> Result<bool, String> {
     invoke("cancel_conversion", &CancelArgs { batch_id }).await
+}
+
+pub async fn open_output_folder(output_path: String) -> Result<(), String> {
+    invoke("open_output_folder", &OutputPathArgs { output_path }).await
 }
 
 pub fn setup_progress_listener(callback: impl Fn(ProgressEvent) + 'static) {
@@ -72,10 +94,16 @@ pub fn setup_progress_listener(callback: impl Fn(ProgressEvent) + 'static) {
     });
 }
 
-pub fn setup_drag_drop_listener(callback: impl Fn(Vec<String>) + 'static) {
+pub fn setup_drag_drop_listener(callback: impl Fn(bool, Vec<String>) + 'static) {
     let closure = Closure::<dyn Fn(JsValue)>::new(move |value| {
-        if let Ok(paths) = serde_wasm_bindgen::from_value(value) {
-            callback(paths);
+        if let Ok(event) = serde_wasm_bindgen::from_value::<DragDropEvent>(value) {
+            let dragging = matches!(event.kind.as_str(), "enter" | "over");
+            let paths = if event.kind == "drop" {
+                event.paths
+            } else {
+                Vec::new()
+            };
+            callback(dragging, paths);
         }
     });
     spawn_local(async move {
@@ -87,6 +115,13 @@ pub fn setup_drag_drop_listener(callback: impl Fn(Vec<String>) + 'static) {
             closure.forget();
         }
     });
+}
+
+#[derive(Deserialize)]
+struct DragDropEvent {
+    kind: String,
+    #[serde(default)]
+    paths: Vec<String>,
 }
 
 async fn invoke<A, R>(command: &str, args: &A) -> Result<R, String>

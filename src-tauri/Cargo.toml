@@ -1,15 +1,15 @@
 [package]
-name = "ttf2woff2-gui"
+name = "fontbridge"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "ttf2woff2_gui_lib"
+name = "fontbridge_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [[bin]]
-name = "ttf2woff2-gui"
+name = "fontbridge"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -19,7 +19,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
-ttf2woff2-gui-shared.workspace = true
+fontbridge-shared.workspace = true
 tauri = { version = "2.11", features = [] }
 tauri-plugin-dialog = "2.7"
 tempfile = "3"
@@ -28,3 +28,8 @@ walkdir = "2"
 
 [dev-dependencies]
 tempfile = "3"
+
+[features]
+# Production builds serve the bundled frontend through Tauri's asset protocol.
+# The Tauri CLI enables this feature automatically for `tauri build`.
+custom-protocol = ["tauri/custom-protocol"]
