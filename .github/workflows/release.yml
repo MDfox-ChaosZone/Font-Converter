@@ -78,16 +78,30 @@ jobs:
         shell: pwsh
         run: Copy-Item "target\${{ matrix.target }}\release\font-converter.exe" "Font-Converter-windows-x64-portable.exe"
 
-      - name: Build Unix desktop bundles
-        if: runner.os != 'Windows'
+      - name: Build Linux desktop bundles
+        if: runner.os == 'Linux'
         env:
-          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_AVAILABLE == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_ID: ${{ env.APPLE_SIGNING_AVAILABLE == 'true' && secrets.APPLE_ID || '' }}
-          APPLE_PASSWORD: ${{ env.APPLE_SIGNING_AVAILABLE == 'true' && secrets.APPLE_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ env.APPLE_SIGNING_AVAILABLE == 'true' && secrets.APPLE_TEAM_ID || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Build macOS desktop bundles with signing
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_AVAILABLE == 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Build macOS desktop bundles without signing
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_AVAILABLE != 'true'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --no-sign
 
       - name: Upload Windows portable executable
         if: runner.os == 'Windows'
