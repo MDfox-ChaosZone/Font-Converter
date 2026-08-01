@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use font_converter_shared::{
     BatchSummary, ConversionKind, ItemStatus, ProgressEvent, QueueItem, ScanResult, ScanWarning,
 };
-use i18n::{Locale, Message};
+use i18n::{Locale, Message, Theme};
 use leptos::{ev, leptos_dom::helpers::window_event_listener, prelude::*};
 use wasm_bindgen_futures::spawn_local;
 
@@ -26,6 +26,8 @@ fn main() {
 #[component]
 fn App() -> impl IntoView {
     let locale = RwSignal::new(Locale::load());
+    let theme = RwSignal::new(Theme::load());
+    theme.get_untracked().apply();
     let items = RwSignal::new(Vec::<QueueItem>::new());
     let warnings = RwSignal::new(Vec::<ScanWarning>::new());
     let summary = RwSignal::new(BatchSummary::default());
@@ -216,6 +218,11 @@ fn App() -> impl IntoView {
         locale.set(next);
         next.save();
     };
+    let set_theme = move |next: Theme| {
+        theme.set(next);
+        next.save();
+        next.apply();
+    };
 
     let pending_count = move || summary.get().queued;
     let finished_count = move || completed_count(&summary.get());
@@ -246,17 +253,36 @@ fn App() -> impl IntoView {
                         <p>{move || locale.get().t(Message::Tagline)}</p>
                     </div>
                 </div>
-                <div class="language" aria-label=move || locale.get().t(Message::Language)>
-                    <button
-                        type="button"
-                        class:active=move || locale.get() == Locale::ZhCn
-                        on:click=move |_| set_locale(Locale::ZhCn)
-                    >"中文"</button>
-                    <button
-                        type="button"
-                        class:active=move || locale.get() == Locale::En
-                        on:click=move |_| set_locale(Locale::En)
-                    >"EN"</button>
+                <div class="topbar-actions">
+                    <div class="theme-switcher" role="group" aria-label=move || locale.get().t(Message::Theme)>
+                        <button
+                            type="button"
+                            class:active=move || theme.get() == Theme::System
+                            on:click=move |_| set_theme(Theme::System)
+                        >{move || locale.get().t(Message::ThemeSystem)}</button>
+                        <button
+                            type="button"
+                            class:active=move || theme.get() == Theme::Light
+                            on:click=move |_| set_theme(Theme::Light)
+                        >{move || locale.get().t(Message::ThemeLight)}</button>
+                        <button
+                            type="button"
+                            class:active=move || theme.get() == Theme::Dark
+                            on:click=move |_| set_theme(Theme::Dark)
+                        >{move || locale.get().t(Message::ThemeDark)}</button>
+                    </div>
+                    <div class="language" aria-label=move || locale.get().t(Message::Language)>
+                        <button
+                            type="button"
+                            class:active=move || locale.get() == Locale::ZhCn
+                            on:click=move |_| set_locale(Locale::ZhCn)
+                        >"中文"</button>
+                        <button
+                            type="button"
+                            class:active=move || locale.get() == Locale::En
+                            on:click=move |_| set_locale(Locale::En)
+                        >"EN"</button>
+                    </div>
                 </div>
             </header>
 

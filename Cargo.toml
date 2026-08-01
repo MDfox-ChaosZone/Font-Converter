@@ -6,6 +6,12 @@ members = ["cli", "core", "frontend", "shared", "src-tauri"]
 version = "1.0.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
+description = "Cross-platform TTF, OTF, and WOFF2 font converter with a desktop GUI and CLI"
+repository = "https://github.com/MDfox-ChaosZone/Font-Converter"
+homepage = "https://github.com/MDfox-ChaosZone/Font-Converter"
+readme = "README.md"
+keywords = ["font", "ttf", "otf", "woff2"]
+categories = ["command-line-utilities"]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

@@ -1,11 +1,58 @@
 use web_sys::window;
 
 const STORAGE_KEY: &str = "font-converter.locale";
+const THEME_STORAGE_KEY: &str = "font-converter.theme";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Locale {
     ZhCn,
     En,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Theme {
+    System,
+    Light,
+    Dark,
+}
+
+impl Theme {
+    pub fn load() -> Self {
+        let Some(value) = window()
+            .and_then(|window| window.local_storage().ok().flatten())
+            .and_then(|storage| storage.get_item(THEME_STORAGE_KEY).ok().flatten())
+        else {
+            return Self::System;
+        };
+
+        match value.as_str() {
+            "light" => Self::Light,
+            "dark" => Self::Dark,
+            _ => Self::System,
+        }
+    }
+
+    pub fn save(self) {
+        if let Some(storage) = window().and_then(|window| window.local_storage().ok().flatten()) {
+            let _ = storage.set_item(THEME_STORAGE_KEY, self.as_str());
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+
+    pub fn apply(self) {
+        if let Some(document) = window().and_then(|window| window.document())
+            && let Some(root) = document.document_element()
+        {
+            let _ = root.set_attribute("data-theme", self.as_str());
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -57,6 +104,10 @@ pub enum Message {
     ConversionDirection,
     ResizeColumn,
     Language,
+    Theme,
+    ThemeSystem,
+    ThemeLight,
+    ThemeDark,
 }
 
 impl Locale {
@@ -139,6 +190,10 @@ impl Locale {
             (Self::ZhCn, Message::ConversionDirection) => "转换方向",
             (Self::ZhCn, Message::ResizeColumn) => "拖动调整列宽",
             (Self::ZhCn, Message::Language) => "语言",
+            (Self::ZhCn, Message::Theme) => "主题",
+            (Self::ZhCn, Message::ThemeSystem) => "跟随系统",
+            (Self::ZhCn, Message::ThemeLight) => "浅色",
+            (Self::ZhCn, Message::ThemeDark) => "深色",
 
             (Self::En, Message::Tagline) => "Effortless TTF/OTF and WOFF2 font conversion",
             (Self::En, Message::DropTitle) => "Drop fonts or folders here",
@@ -193,6 +248,10 @@ impl Locale {
             (Self::En, Message::ConversionDirection) => "Direction",
             (Self::En, Message::ResizeColumn) => "Drag to resize column",
             (Self::En, Message::Language) => "Language",
+            (Self::En, Message::Theme) => "Theme",
+            (Self::En, Message::ThemeSystem) => "System",
+            (Self::En, Message::ThemeLight) => "Light",
+            (Self::En, Message::ThemeDark) => "Dark",
         }
     }
 }
