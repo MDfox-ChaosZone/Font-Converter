@@ -77,12 +77,15 @@ CLI 使用退出码区分成功（`0`）、转换失败（`1`）、参数错误�
 
 ### 下载与发布制品
 
-GitHub Actions 会在推送 `v*` 标签时自动构建并发布 Release：
+GitHub Actions 会在推送 `v*` 标签时自动构建并发布 [GitHub Release](https://github.com/MDfox-ChaosZone/Font-Converter/releases/latest)。Release 页面会为每个制品提供直接下载链接，并说明其适用平台：
 
-- Windows x64：只发布 `Font-Converter-windows-x64-portable.exe`，不生成 MSI/NSIS 安装包；
-- Linux x64：发布 AppImage 和 DEB；
-- macOS Intel：发布 x64 DMG；
-- macOS Apple Silicon：发布 arm64 DMG。
+- Windows x64：便携版 GUI 和 CLI，适用于 Intel/AMD 64 位 Windows；
+- Windows ARM64：便携版 GUI 和 CLI，适用于 ARM64 Windows；
+- Linux x86_64：AppImage、DEB、RPM，以及 CLI 二进制；
+- Linux ARM64：AppImage、DEB、RPM，以及 CLI 二进制；
+- macOS Apple Silicon：arm64 DMG 和 CLI 二进制；
+- macOS Intel：不发布任何制品；
+- CLI 二进制覆盖上述全部原生构建目标，适合批处理和无图形界面环境。
 
 带有连字符的标签（例如 `v1.0.0-alpha.1`）会自动标记为 GitHub Pre-release。Windows 便携版通常可在 Windows 10 1803+ 和 Windows 11 上直接运行，但仍依赖系统 WebView2 运行时。未配置签名密钥时，macOS 和 Windows 制品可能显示操作系统安全提示。
 
@@ -109,7 +112,7 @@ git submodule update --init --recursive
 
 - Windows：Microsoft C++ Build Tools 和 WebView2；
 - macOS：Xcode Command Line Tools；
-- Debian/Ubuntu Linux：`libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`。
+- Debian/Ubuntu Linux：`libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf rpm`。
 
 启动 GUI：
 
@@ -192,7 +195,7 @@ The CLI uses exit code `0` for success, `1` for conversion failures, `2` for inv
 
 ### Downloads and CI releases
 
-Pushing a `v*` tag starts GitHub Actions and publishes a Release with a portable Windows x64 executable only (no MSI/NSIS installer), Linux x64 AppImage/DEB packages, and macOS Intel/Apple Silicon DMGs. Tags containing a hyphen, such as `v1.0.0-alpha.1`, are published as prereleases. The Windows GUI uses the system WebView2 runtime.
+Pushing a `v*` tag starts GitHub Actions and publishes a [GitHub Release](https://github.com/MDfox-ChaosZone/Font-Converter/releases/latest) with direct links and platform guidance for every asset: Windows x64 and ARM64 portable GUI/CLI binaries, Linux x86_64 and ARM64 AppImage/DEB/RPM packages plus CLI binaries, and an Apple Silicon macOS DMG plus CLI binary. No Intel macOS artifacts are published. Tags containing a hyphen, such as `v1.0.0-alpha.1`, are published as prereleases. The Windows GUI uses the system WebView2 runtime.
 
 ### License
 

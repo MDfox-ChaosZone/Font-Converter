@@ -17,18 +17,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: windows-latest
+          - runner: windows-latest
             target: x86_64-pc-windows-msvc
-          - platform: ubuntu-24.04
+            platform: windows
+            arch: x64
+            cli_only: false
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            platform: windows
+            arch: arm64
+            cli_only: false
+          - runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            bundles: appimage,deb
-          - platform: macos-15-intel
-            target: x86_64-apple-darwin
-            bundles: app,dmg
-          - platform: macos-15
+            platform: linux
+            arch: x86_64
+            cli_only: false
+            bundles: appimage,deb,rpm
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            platform: linux
+            arch: arm64
+            cli_only: false
+            bundles: appimage,deb,rpm
+          - runner: macos-latest
             target: aarch64-apple-darwin
+            platform: macos
+            arch: arm64
+            cli_only: false
             bundles: app,dmg
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -42,21 +59,28 @@ jobs:
         with:
           key: release-${{ matrix.target }}
 
-      - uses: taiki-e/install-action@v2
+      - name: Install Trunk
+        if: matrix.target != 'aarch64-pc-windows-msvc' && matrix.cli_only != true
+        uses: taiki-e/install-action@v2
         with:
           tool: trunk
 
+      - name: Install Trunk on Windows ARM64
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        run: cargo install --locked trunk
+
       - name: Install Tauri CLI
+        if: matrix.cli_only != true
         run: cargo install --locked tauri-cli
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf rpm
 
       - name: Import Apple signing certificate
-        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE_AVAILABLE == 'true'
+        if: runner.os == 'macOS' && matrix.cli_only != true && env.APPLE_CERTIFICATE_AVAILABLE == 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -69,14 +93,12 @@ jobs:
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
+      - name: Build CLI
+        run: cargo build -p font-converter-cli --release --target ${{ matrix.target }}
+
       - name: Build Windows portable desktop executable
         if: runner.os == 'Windows'
         run: cargo tauri build --target ${{ matrix.target }} --no-bundle
-
-      - name: Stage Windows portable desktop executable
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: Copy-Item "target\${{ matrix.target }}\release\font-converter.exe" "Font-Converter-windows-x64-portable.exe"
 
       - name: Build Linux desktop bundles
         if: runner.os == 'Linux'
@@ -86,7 +108,7 @@ jobs:
         run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Build macOS desktop bundles with signing
-        if: runner.os == 'macOS' && env.APPLE_SIGNING_AVAILABLE == 'true'
+        if: runner.os == 'macOS' && matrix.cli_only != true && env.APPLE_SIGNING_AVAILABLE == 'true'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -97,36 +119,67 @@ jobs:
         run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Build macOS desktop bundles without signing
-        if: runner.os == 'macOS' && env.APPLE_SIGNING_AVAILABLE != 'true'
+        if: runner.os == 'macOS' && matrix.cli_only != true && env.APPLE_SIGNING_AVAILABLE != 'true'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --no-sign
 
-      - name: Upload Windows portable executable
+      - name: Stage Windows assets
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-portable
-          path: Font-Converter-windows-x64-portable.exe
-          if-no-files-found: error
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:GITHUB_WORKSPACE "release-assets"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          $arch = "${{ matrix.arch }}"
+          Copy-Item "target\${{ matrix.target }}\release\font-converter.exe" "$stage\Font-Converter-windows-$arch-portable.exe"
+          Copy-Item "target\${{ matrix.target }}\release\font-converter-cli.exe" "$stage\Font-Converter-cli-windows-$arch.exe"
 
-      - name: Upload Linux bundles
+      - name: Stage Linux assets
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
-            target/${{ matrix.target }}/release/bundle/deb/*.deb
-          if-no-files-found: error
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="release-assets"
+          mkdir -p "$stage"
+          arch="${{ matrix.arch }}"
+          bundle_root="target/${{ matrix.target }}/release/bundle"
 
-      - name: Upload macOS DMG
+          cp "target/${{ matrix.target }}/release/font-converter-cli" "$stage/Font-Converter-cli-linux-$arch"
+
+          shopt -s nullglob
+          appimages=("$bundle_root/appimage"/*.AppImage)
+          debs=("$bundle_root/deb"/*.deb)
+          rpms=("$bundle_root/rpm"/*.rpm)
+          [[ ${#appimages[@]} -eq 1 ]] || { echo "Expected one AppImage, found ${#appimages[@]}" >&2; exit 1; }
+          [[ ${#debs[@]} -eq 1 ]] || { echo "Expected one DEB package, found ${#debs[@]}" >&2; exit 1; }
+          [[ ${#rpms[@]} -eq 1 ]] || { echo "Expected one RPM package, found ${#rpms[@]}" >&2; exit 1; }
+          cp "${appimages[0]}" "$stage/Font-Converter-linux-$arch.AppImage"
+          cp "${debs[0]}" "$stage/Font-Converter-linux-$arch.deb"
+          cp "${rpms[0]}" "$stage/Font-Converter-linux-$arch.rpm"
+          chmod +x "$stage/Font-Converter-cli-linux-$arch" "$stage/Font-Converter-linux-$arch.AppImage"
+
+      - name: Stage macOS assets
         if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="release-assets"
+          mkdir -p "$stage"
+          target_root="target/${{ matrix.target }}/release"
+          cp "$target_root/font-converter-cli" "$stage/Font-Converter-cli-macos-${{ matrix.arch }}"
+          chmod +x "$stage/Font-Converter-cli-macos-${{ matrix.arch }}"
+          if [[ "${{ matrix.cli_only }}" != "true" ]]; then
+            dmgs=("$target_root/bundle/dmg"/*.dmg)
+            [[ ${#dmgs[@]} -eq 1 ]] || { echo "Expected one DMG, found ${#dmgs[@]}" >&2; exit 1; }
+            cp "${dmgs[0]}" "$stage/Font-Converter-macos-${{ matrix.arch }}.dmg"
+          fi
+
+      - name: Upload release assets
         uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          name: release-${{ matrix.target }}
+          path: release-assets
           if-no-files-found: error
 
   publish:
@@ -138,14 +191,71 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Write release asset guide
+        env:
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://github.com/${REPOSITORY}/releases/download/${TAG}"
+
+          asset_link() {
+            local label="$1"
+            local filename="$2"
+            local platform="$3"
+            printf '| [%s](%s/%s) | %s |\n' "$label" "$base" "$filename" "$platform"
+          }
+
+          {
+            cat <<'EOF'
+          ## 下载说明 / Downloads
+
+          请根据操作系统和 CPU 架构选择制品。Intel/AMD 64 位使用 `x64` 或 `x86_64`，ARM 64 位使用 `arm64`。
+
+          | 图形界面制品 | 适用平台 |
+          | --- | --- |
+          EOF
+            asset_link "Windows x64 便携版" "Font-Converter-windows-x64-portable.exe" "Windows 10/11 x64（Intel/AMD）"
+            asset_link "Windows ARM64 便携版" "Font-Converter-windows-arm64-portable.exe" "Windows ARM64 设备"
+            asset_link "Linux x86_64 AppImage" "Font-Converter-linux-x86_64.AppImage" "通用 Linux x86_64"
+            asset_link "Linux x86_64 DEB" "Font-Converter-linux-x86_64.deb" "Debian/Ubuntu 等 x86_64 Linux"
+            asset_link "Linux x86_64 RPM" "Font-Converter-linux-x86_64.rpm" "Fedora/RHEL/openSUSE 等 x86_64 Linux"
+            asset_link "Linux ARM64 AppImage" "Font-Converter-linux-arm64.AppImage" "通用 Linux ARM64"
+            asset_link "Linux ARM64 DEB" "Font-Converter-linux-arm64.deb" "Debian/Ubuntu 等 ARM64 Linux"
+            asset_link "Linux ARM64 RPM" "Font-Converter-linux-arm64.rpm" "Fedora/RHEL/openSUSE 等 ARM64 Linux"
+            asset_link "macOS Apple Silicon DMG" "Font-Converter-macos-arm64.dmg" "M 系列芯片 Mac（Apple Silicon）"
+
+            cat <<'EOF'
+
+          ### CLI 二进制
+
+          CLI 适合脚本、批量转换和无图形界面的环境。
+
+          | CLI 制品 | 适用平台 |
+          | --- | --- |
+          EOF
+            asset_link "Windows x64 CLI" "Font-Converter-cli-windows-x64.exe" "Windows x64（Intel/AMD）"
+            asset_link "Windows ARM64 CLI" "Font-Converter-cli-windows-arm64.exe" "Windows ARM64"
+            asset_link "Linux x86_64 CLI" "Font-Converter-cli-linux-x86_64" "Linux x86_64"
+            asset_link "Linux ARM64 CLI" "Font-Converter-cli-linux-arm64" "Linux ARM64"
+            asset_link "macOS ARM64 CLI" "Font-Converter-cli-macos-arm64" "Apple Silicon Mac"
+
+            cat <<'EOF'
+
+          Windows 图形界面版本依赖系统 WebView2。当前 Release 不提供 Intel macOS 制品。
+          EOF
+          } > RELEASE_NOTES.md
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: Font Converter ${{ github.ref_name }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
+          body_path: RELEASE_NOTES.md
           files: release-assets/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
