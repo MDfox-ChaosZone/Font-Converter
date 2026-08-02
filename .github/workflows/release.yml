@@ -69,6 +69,10 @@ jobs:
         if: matrix.target == 'aarch64-pc-windows-msvc'
         run: cargo install --locked trunk
 
+      - name: Install wasm-bindgen CLI on Windows ARM64
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        run: cargo install --locked wasm-bindgen-cli --version 0.2.126
+
       - name: Install Tauri CLI
         if: matrix.cli_only != true
         run: cargo install --locked tauri-cli
