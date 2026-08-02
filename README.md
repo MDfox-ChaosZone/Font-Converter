@@ -4,7 +4,8 @@
 
 ## 简体中文
 
-Font Converter 是一个使用 Rust、Tauri 2 和 Leptos 构建的跨平台字体转换工具，提供桌面 GUI 和命令行 CLI。它基于 Google WOFF2 参考实现，在 TTF、OTF 与 WOFF2 之间进行转换，并自动判断转换方向。
+Font Converter 是一个跨桌面平台的字体格式转换工具, 实现TTF/OTF与WOFF2的相互转换.提供桌面 GUI 和命令行 CLI,基于 Google WOFF2 参考实现.
+是一个使用 Rust、Tauri 2 和 Leptos 构建的跨平台字体转换工具，
 
 ### 版本与算法
 
