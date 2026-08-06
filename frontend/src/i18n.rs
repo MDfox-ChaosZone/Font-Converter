@@ -64,7 +64,6 @@ pub enum Message {
     SelectFiles,
     SelectFilesHint,
     SelectFolder,
-    SelectFolderHint,
     Scanning,
     OutputFolder,
     SourceFolder,
@@ -75,7 +74,6 @@ pub enum Message {
     ClearCompleted,
     ClearAll,
     Queue,
-    ConversionTimeHint,
     Completed,
     EmptyTitle,
     EmptyHint,
@@ -101,6 +99,11 @@ pub enum Message {
     CommandFailed,
     SupportedFormats,
     AutoDetectHint,
+    FolderDirectionTitle,
+    FolderFontToWoff2,
+    FolderWoff2ToFont,
+    FolderBoth,
+    ScanFolder,
     ConversionDirection,
     ResizeColumn,
     Language,
@@ -143,12 +146,11 @@ impl Locale {
         match (self, message) {
             (Self::ZhCn, Message::Tagline) => "轻松搞定TTF/OTF和WOFF2字体格式互转",
             (Self::ZhCn, Message::DropTitle) => "拖放字体或文件夹到这里",
-            (Self::ZhCn, Message::DropHint) => "递归扫描 .ttf、.otf 和 .woff2；自动识别转换方向",
+            (Self::ZhCn, Message::DropHint) => "支持 .ttf、.otf 和 .woff2",
             (Self::ZhCn, Message::AddFonts) => "选择文件/文件夹",
             (Self::ZhCn, Message::SelectFiles) => "选择文件",
             (Self::ZhCn, Message::SelectFilesHint) => "添加一个或多个字体文件",
             (Self::ZhCn, Message::SelectFolder) => "选择文件夹",
-            (Self::ZhCn, Message::SelectFolderHint) => "递归扫描文件夹中的字体",
             (Self::ZhCn, Message::Scanning) => "正在扫描字体…",
             (Self::ZhCn, Message::OutputFolder) => "输出文件夹",
             (Self::ZhCn, Message::SourceFolder) => "源文件所在文件夹（默认）",
@@ -159,10 +161,11 @@ impl Locale {
             (Self::ZhCn, Message::ClearCompleted) => "清除已完成",
             (Self::ZhCn, Message::ClearAll) => "全部清除",
             (Self::ZhCn, Message::Queue) => "转换队列",
-            (Self::ZhCn, Message::ConversionTimeHint) => "TTF/OTF→WOFF2通常需要十余秒",
             (Self::ZhCn, Message::Completed) => "已完成",
             (Self::ZhCn, Message::EmptyTitle) => "尚未添加字体",
-            (Self::ZhCn, Message::EmptyHint) => "从左侧添加或直接拖入字体",
+            (Self::ZhCn, Message::EmptyHint) => {
+                "添加后将在这里显示转换方向、文件大小、输出路径和处理状态"
+            }
             (Self::ZhCn, Message::File) => "字体名称",
             (Self::ZhCn, Message::Path) => "路径",
             (Self::ZhCn, Message::Output) => "输出",
@@ -185,8 +188,13 @@ impl Locale {
             (Self::ZhCn, Message::CommandFailed) => "操作失败",
             (Self::ZhCn, Message::SupportedFormats) => "支持的转换格式",
             (Self::ZhCn, Message::AutoDetectHint) => {
-                "WOFF2 文件包含字体轮廓类型信息，Font Converter 会据此自动转换为 TTF（TrueType）或 OTF（CFF/OpenType）。"
+                "WOFF2→TTF/OTF时，FontConverter 会根据WOFF2中字体轮廓类型信息将其自动转换为TTF或 OTF。\nTTF/OTF→WOFF2通常需要十几秒。"
             }
+            (Self::ZhCn, Message::FolderDirectionTitle) => "选择文件中字体的转换方向",
+            (Self::ZhCn, Message::FolderFontToWoff2) => "TTF / OTF → WOFF2",
+            (Self::ZhCn, Message::FolderWoff2ToFont) => "WOFF2 → TTF / OTF",
+            (Self::ZhCn, Message::FolderBoth) => "两种方向都转换",
+            (Self::ZhCn, Message::ScanFolder) => "扫描文件夹",
             (Self::ZhCn, Message::ConversionDirection) => "转换方向",
             (Self::ZhCn, Message::ResizeColumn) => "拖动调整列宽",
             (Self::ZhCn, Message::Language) => "语言",
@@ -197,14 +205,11 @@ impl Locale {
 
             (Self::En, Message::Tagline) => "Effortless TTF/OTF and WOFF2 font conversion",
             (Self::En, Message::DropTitle) => "Drop fonts or folders here",
-            (Self::En, Message::DropHint) => {
-                "Scans .ttf, .otf, and .woff2 recursively; detects direction automatically"
-            }
+            (Self::En, Message::DropHint) => "Supports .ttf, .otf, and .woff2",
             (Self::En, Message::AddFonts) => "Select files/folder",
             (Self::En, Message::SelectFiles) => "Select files",
             (Self::En, Message::SelectFilesHint) => "Add one or more font files",
             (Self::En, Message::SelectFolder) => "Select folder",
-            (Self::En, Message::SelectFolderHint) => "Scan fonts in a folder recursively",
             (Self::En, Message::Scanning) => "Scanning fonts…",
             (Self::En, Message::OutputFolder) => "Output folder",
             (Self::En, Message::SourceFolder) => "Beside each source (default)",
@@ -215,12 +220,11 @@ impl Locale {
             (Self::En, Message::ClearCompleted) => "Clear completed",
             (Self::En, Message::ClearAll) => "Clear all",
             (Self::En, Message::Queue) => "Conversion queue",
-            (Self::En, Message::ConversionTimeHint) => {
-                "TTF/OTF → WOFF2 usually takes over ten seconds"
-            }
             (Self::En, Message::Completed) => "Completed",
             (Self::En, Message::EmptyTitle) => "No fonts added yet",
-            (Self::En, Message::EmptyHint) => "Add fonts on the left or drop them here",
+            (Self::En, Message::EmptyHint) => {
+                "Added fonts will show their direction, sizes, output paths, and status here"
+            }
             (Self::En, Message::File) => "Font name",
             (Self::En, Message::Path) => "Path",
             (Self::En, Message::Output) => "Output",
@@ -243,8 +247,15 @@ impl Locale {
             (Self::En, Message::CommandFailed) => "Operation failed",
             (Self::En, Message::SupportedFormats) => "Supported conversion formats",
             (Self::En, Message::AutoDetectHint) => {
-                "WOFF2 stores its font outline type. Font Converter uses it to restore TTF (TrueType) or OTF (CFF/OpenType) automatically."
+                "WOFF2→TTF/OTF uses the outline type stored in WOFF2 to restore TTF or OTF.\nTTF/OTF→WOFF2 usually takes over ten seconds."
             }
+            (Self::En, Message::FolderDirectionTitle) => {
+                "Choose a conversion direction for the fonts in the folder"
+            }
+            (Self::En, Message::FolderFontToWoff2) => "TTF / OTF → WOFF2",
+            (Self::En, Message::FolderWoff2ToFont) => "WOFF2 → TTF / OTF",
+            (Self::En, Message::FolderBoth) => "Convert both directions",
+            (Self::En, Message::ScanFolder) => "Scan folder",
             (Self::En, Message::ConversionDirection) => "Direction",
             (Self::En, Message::ResizeColumn) => "Drag to resize column",
             (Self::En, Message::Language) => "Language",

@@ -1,4 +1,4 @@
-use font_converter_shared::{ProgressEvent, QueueItem, ScanResult};
+use font_converter_shared::{FolderConversionMode, ProgressEvent, QueueItem, ScanResult};
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
@@ -24,6 +24,7 @@ struct EmptyArgs {}
 struct PathsArgs {
     paths: Vec<String>,
     output_directory: Option<String>,
+    folder_conversion_mode: Option<FolderConversionMode>,
 }
 
 #[derive(Serialize)]
@@ -54,12 +55,14 @@ pub async fn pick_folder() -> Result<Vec<String>, String> {
 pub async fn collect_inputs(
     paths: Vec<String>,
     output_directory: Option<String>,
+    folder_conversion_mode: Option<FolderConversionMode>,
 ) -> Result<ScanResult, String> {
     invoke(
         "collect_inputs",
         &PathsArgs {
             paths,
             output_directory,
+            folder_conversion_mode,
         },
     )
     .await

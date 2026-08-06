@@ -5,11 +5,21 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use font_converter_shared::{ConversionKind, ItemStatus, QueueItem, ScanResult, ScanWarning};
+use font_converter_shared::{
+    ConversionKind, FolderConversionMode, ItemStatus, QueueItem, ScanResult, ScanWarning,
+};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
 pub fn collect(paths: &[String], output_directory: Option<&Path>) -> ScanResult {
+    collect_with_folder_mode(paths, output_directory, FolderConversionMode::Both)
+}
+
+pub fn collect_with_folder_mode(
+    paths: &[String],
+    output_directory: Option<&Path>,
+    folder_mode: FolderConversionMode,
+) -> ScanResult {
     let mut result = ScanResult::default();
     let mut seen = HashSet::new();
     let mut seen_outputs = HashSet::new();
@@ -42,6 +52,7 @@ pub fn collect(paths: &[String], output_directory: Option<&Path>) -> ScanResult 
                 &mut seen,
                 &mut seen_outputs,
                 &mut result,
+                folder_mode,
             );
         } else if path.is_file() {
             collect_file(
@@ -50,6 +61,7 @@ pub fn collect(paths: &[String], output_directory: Option<&Path>) -> ScanResult 
                 &mut seen,
                 &mut seen_outputs,
                 &mut result,
+                None,
             );
         } else {
             result
@@ -70,12 +82,20 @@ fn collect_directory(
     seen: &mut HashSet<PathBuf>,
     seen_outputs: &mut HashSet<String>,
     result: &mut ScanResult,
+    folder_mode: FolderConversionMode,
 ) {
     for entry in WalkDir::new(path).follow_links(false) {
         match entry {
             Ok(entry) if entry.file_type().is_file() => {
                 if is_supported_extension(entry.path()) {
-                    collect_file(entry.path(), output_directory, seen, seen_outputs, result);
+                    collect_file(
+                        entry.path(),
+                        output_directory,
+                        seen,
+                        seen_outputs,
+                        result,
+                        Some(folder_mode),
+                    );
                 }
             }
             Ok(_) => {}
@@ -93,6 +113,7 @@ fn collect_file(
     seen: &mut HashSet<PathBuf>,
     seen_outputs: &mut HashSet<String>,
     result: &mut ScanResult,
+    folder_mode: Option<FolderConversionMode>,
 ) {
     if !is_supported_extension(path) {
         result.warnings.push(warning(
@@ -120,6 +141,9 @@ fn collect_file(
             return;
         }
     };
+    if folder_mode.is_some_and(|mode| !mode.accepts(conversion)) {
+        return;
+    }
     let output = match output_directory {
         Some(directory) => {
             let Some(file_name) = default_output.file_name() else {
@@ -237,6 +261,36 @@ mod tests {
         assert_eq!(result.items.len(), 2);
         assert!(result.warnings.is_empty());
         assert_eq!(result.items[0].status, ItemStatus::Queued);
+    }
+
+    #[test]
+    fn filters_directory_items_by_selected_conversion_mode() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(directory.path().join("font.ttf"), b"fixture").unwrap();
+        fs::write(directory.path().join("font.otf"), b"fixture").unwrap();
+        fs::write(directory.path().join("cff.woff2"), b"wOF2OTTO").unwrap();
+        let paths = &[directory.path().to_string_lossy().into_owned()];
+
+        let font_to_woff2 =
+            collect_with_folder_mode(paths, None, FolderConversionMode::FontToWoff2);
+        assert_eq!(font_to_woff2.items.len(), 2);
+        assert!(font_to_woff2.items.iter().all(|item| {
+            matches!(
+                item.conversion,
+                ConversionKind::TtfToWoff2 | ConversionKind::OtfToWoff2
+            )
+        }));
+
+        let woff2_to_font =
+            collect_with_folder_mode(paths, None, FolderConversionMode::Woff2ToFont);
+        assert_eq!(woff2_to_font.items.len(), 1);
+        assert_eq!(
+            woff2_to_font.items[0].conversion,
+            ConversionKind::Woff2ToOtf
+        );
+
+        let both = collect_with_folder_mode(paths, None, FolderConversionMode::Both);
+        assert_eq!(both.items.len(), 3);
     }
 
     #[test]

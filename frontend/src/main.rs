@@ -4,7 +4,8 @@ mod i18n;
 use std::collections::HashSet;
 
 use font_converter_shared::{
-    BatchSummary, ConversionKind, ItemStatus, ProgressEvent, QueueItem, ScanResult, ScanWarning,
+    BatchSummary, ConversionKind, FolderConversionMode, ItemStatus, ProgressEvent, QueueItem,
+    ScanResult, ScanWarning,
 };
 use i18n::{Locale, Message, Theme};
 use leptos::{ev, leptos_dom::helpers::window_event_listener, prelude::*};
@@ -35,6 +36,9 @@ fn App() -> impl IntoView {
     let scanning = RwSignal::new(false);
     let dragging = RwSignal::new(false);
     let output_directory = RwSignal::new(None::<String>);
+    let pending_folder = RwSignal::new(None::<String>);
+    let pending_folder_scan = RwSignal::new(None::<ScanResult>);
+    let folder_conversion_mode = RwSignal::new(FolderConversionMode::Both);
     let error = RwSignal::new(None::<String>);
     let column_widths = RwSignal::new([78_i32, 160, 180, 96, 62]);
     let resizing = RwSignal::new(None::<ColumnResize>);
@@ -64,7 +68,7 @@ fn App() -> impl IntoView {
         scanning.set(true);
         error.set(None);
         spawn_local(async move {
-            match api::collect_inputs(paths, output_directory.get_untracked()).await {
+            match api::collect_inputs(paths, output_directory.get_untracked(), None).await {
                 Ok(result) => merge_scan_result(items, warnings, summary, result),
                 Err(message) => error.set(Some(message)),
             }
@@ -110,11 +114,77 @@ fn App() -> impl IntoView {
     let choose_folder = move |_| {
         spawn_local(async move {
             match api::pick_folder().await {
-                Ok(paths) => add_paths(paths),
+                Ok(paths) => {
+                    if let Some(path) = paths.into_iter().next() {
+                        if scanning.get_untracked() || active_batch.get_untracked().is_some() {
+                            return;
+                        }
+                        scanning.set(true);
+                        error.set(None);
+                        pending_folder_scan.set(None);
+                        let scan = api::collect_inputs(
+                            vec![path.clone()],
+                            output_directory.get_untracked(),
+                            Some(FolderConversionMode::Both),
+                        )
+                        .await;
+                        match scan {
+                            Ok(result) => {
+                                let has_font_to_woff2 = result.items.iter().any(|item| {
+                                    FolderConversionMode::FontToWoff2.accepts(item.conversion)
+                                });
+                                let has_woff2_to_font = result.items.iter().any(|item| {
+                                    FolderConversionMode::Woff2ToFont.accepts(item.conversion)
+                                });
+                                if has_font_to_woff2 && has_woff2_to_font {
+                                    folder_conversion_mode.set(FolderConversionMode::Both);
+                                    pending_folder_scan.set(Some(result));
+                                    pending_folder.set(Some(path));
+                                } else {
+                                    merge_scan_result(items, warnings, summary, result);
+                                }
+                            }
+                            Err(message) => error.set(Some(message)),
+                        }
+                        scanning.set(false);
+                    }
+                }
                 Err(message) => error.set(Some(message)),
             }
         });
     };
+    let cancel_folder_selection = Callback::new(move |_: ()| {
+        pending_folder.set(None);
+        pending_folder_scan.set(None);
+    });
+    let confirm_folder_selection = Callback::new(move |_: ()| {
+        let Some(path) = pending_folder.get_untracked() else {
+            return;
+        };
+        if scanning.get_untracked() || active_batch.get_untracked().is_some() {
+            return;
+        }
+        pending_folder.set(None);
+        scanning.set(true);
+        error.set(None);
+        let mode = folder_conversion_mode.get_untracked();
+        let pending_scan = pending_folder_scan.get_untracked();
+        pending_folder_scan.set(None);
+        if let Some(result) = pending_scan {
+            merge_scan_result(items, warnings, summary, filter_scan_result(result, mode));
+            scanning.set(false);
+            return;
+        }
+        spawn_local(async move {
+            match api::collect_inputs(vec![path], output_directory.get_untracked(), Some(mode))
+                .await
+            {
+                Ok(result) => merge_scan_result(items, warnings, summary, result),
+                Err(message) => error.set(Some(message)),
+            }
+            scanning.set(false);
+        });
+    });
     let retarget_outputs = move |next_directory: Option<String>| {
         if scanning.get_untracked() || active_batch.get_untracked().is_some() {
             return;
@@ -132,7 +202,7 @@ fn App() -> impl IntoView {
         scanning.set(true);
         error.set(None);
         spawn_local(async move {
-            match api::collect_inputs(paths, next_directory).await {
+            match api::collect_inputs(paths, next_directory, None).await {
                 Ok(result) => replace_scan_result(items, warnings, summary, result),
                 Err(message) => error.set(Some(message)),
             }
@@ -295,6 +365,7 @@ fn App() -> impl IntoView {
                     <div class="drop-content">
                         <div class="drop-icon" aria-hidden="true">"Aa"</div>
                         <h2>{move || locale.get().t(Message::DropTitle)}</h2>
+                        <p class="drop-hint">{move || locale.get().t(Message::DropHint)}</p>
                         <div
                             class="format-pills"
                             aria-label=move || locale.get().t(Message::SupportedFormats)
@@ -335,7 +406,13 @@ fn App() -> impl IntoView {
                         </div>
 
                         <div class="output-destination">
-                            <div class="output-destination-copy">
+                            <button
+                                class="output-destination-copy"
+                                type="button"
+                                title=move || locale.get().t(Message::ChooseOutputFolder)
+                                on:click=choose_output_folder
+                                disabled=move || active_batch.get().is_some() || scanning.get()
+                            >
                                 <span>{move || locale.get().t(Message::OutputFolder)}</span>
                                 <strong title=move || {
                                     output_directory
@@ -349,7 +426,7 @@ fn App() -> impl IntoView {
                                             .unwrap_or_else(|| locale.get().t(Message::SourceFolder).into())
                                     }}
                                 </strong>
-                            </div>
+                            </button>
                             <div class="output-destination-actions">
                                 <button
                                     type="button"
@@ -359,7 +436,7 @@ fn App() -> impl IntoView {
                                     on:click=choose_output_folder
                                     disabled=move || active_batch.get().is_some() || scanning.get()
                                 >
-                                    <span aria-hidden="true">"▰"</span>
+                                    <FolderIcon />
                                 </button>
                                 <Show when=move || output_directory.get().is_some()>
                                     <button
@@ -389,22 +466,23 @@ fn App() -> impl IntoView {
 
                 <section class="queue-card" aria-label=move || locale.get().t(Message::Queue)>
                     <div class="queue-toolbar">
-                        <div class="queue-overview">
+                            <div class="queue-overview">
                             <div class="queue-title-line">
                                 <h2>{move || locale.get().t(Message::Queue)}</h2>
-                                <small>{move || locale.get().t(Message::ConversionTimeHint)}</small>
                             </div>
-                            <p class="completion" role="status" aria-live="polite">
-                                {move || locale.get().t(Message::Completed)}
-                                " "
-                                <strong>{finished_count}</strong>
-                                " / "
-                                <strong>{move || summary.get().total}</strong>
-                            </p>
-                            <div class="progress-track" aria-hidden="true">
-                                <span style:width=move || format!("{}%", progress_percent())></span>
-                            </div>
-                            <BatchSummaryView locale summary />
+                            <Show when=move || { summary.get().total > 0 }>
+                                <p class="completion" role="status" aria-live="polite">
+                                    {move || locale.get().t(Message::Completed)}
+                                    " "
+                                    <strong>{finished_count}</strong>
+                                    " / "
+                                    <strong>{move || summary.get().total}</strong>
+                                </p>
+                                <div class="progress-track" aria-hidden="true">
+                                    <span style:width=move || format!("{}%", progress_percent())></span>
+                                </div>
+                                <BatchSummaryView locale summary />
+                            </Show>
                         </div>
                         <div class="queue-actions">
                             <Show when=move || {
@@ -431,9 +509,11 @@ fn App() -> impl IntoView {
                                         disabled=move || pending_count() == 0 || scanning.get()
                                     >
                                         {move || locale.get().t(Message::Start)}
-                                        " ("
-                                        {pending_count}
-                                        ")"
+                                        <Show when=move || { pending_count() > 0 }>
+                                            " ("
+                                            {pending_count}
+                                            ")"
+                                        </Show>
                                     </button>
                                 }
                             >
@@ -546,7 +626,131 @@ fn App() -> impl IntoView {
                     </Show>
                 </section>
             </div>
+
+            <Show when=move || pending_folder.get().is_some()>
+                <FolderDirectionDialog
+                    locale
+                    mode=folder_conversion_mode
+                    pending_folder
+                    on_cancel=cancel_folder_selection
+                    on_confirm=confirm_folder_selection
+                />
+            </Show>
         </main>
+    }
+}
+
+#[component]
+fn FolderDirectionDialog(
+    locale: RwSignal<Locale>,
+    mode: RwSignal<FolderConversionMode>,
+    pending_folder: RwSignal<Option<String>>,
+    on_cancel: Callback<()>,
+    on_confirm: Callback<()>,
+) -> impl IntoView {
+    view! {
+        <div class="folder-dialog-backdrop">
+            <section
+                class="folder-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="folder-dialog-title"
+            >
+                <h2 id="folder-dialog-title">
+                    {move || locale.get().t(Message::FolderDirectionTitle)}
+                </h2>
+                <p
+                    class="folder-dialog-path"
+                    title=move || pending_folder.get().unwrap_or_default()
+                >
+                    {move || {
+                        pending_folder
+                            .get()
+                            .map(|path| file_name(&path))
+                            .unwrap_or_default()
+                    }}
+                </p>
+                <div
+                    class="folder-direction-options"
+                    role="radiogroup"
+                    aria-label=move || locale.get().t(Message::ConversionDirection)
+                >
+                    <button
+                        type="button"
+                        role="radio"
+                        class="folder-direction-option"
+                        class:active=move || {
+                            mode.get() == FolderConversionMode::FontToWoff2
+                        }
+                        aria-checked=move || {
+                            mode.get() == FolderConversionMode::FontToWoff2
+                        }
+                        on:click=move |_| mode.set(FolderConversionMode::FontToWoff2)
+                    >
+                        {move || locale.get().t(Message::FolderFontToWoff2)}
+                    </button>
+                    <button
+                        type="button"
+                        role="radio"
+                        class="folder-direction-option"
+                        class:active=move || {
+                            mode.get() == FolderConversionMode::Woff2ToFont
+                        }
+                        aria-checked=move || {
+                            mode.get() == FolderConversionMode::Woff2ToFont
+                        }
+                        on:click=move |_| mode.set(FolderConversionMode::Woff2ToFont)
+                    >
+                        {move || locale.get().t(Message::FolderWoff2ToFont)}
+                    </button>
+                    <button
+                        type="button"
+                        role="radio"
+                        class="folder-direction-option"
+                        class:active=move || mode.get() == FolderConversionMode::Both
+                        aria-checked=move || mode.get() == FolderConversionMode::Both
+                        on:click=move |_| mode.set(FolderConversionMode::Both)
+                    >
+                        {move || locale.get().t(Message::FolderBoth)}
+                    </button>
+                </div>
+                <div class="folder-dialog-actions">
+                    <button
+                        class="button ghost"
+                        type="button"
+                        on:click=move |_| on_cancel.run(())
+                    >
+                        {move || locale.get().t(Message::Cancel)}
+                    </button>
+                    <button
+                        class="button primary"
+                        type="button"
+                        on:click=move |_| on_confirm.run(())
+                    >
+                        {move || locale.get().t(Message::ScanFolder)}
+                    </button>
+                </div>
+            </section>
+        </div>
+    }
+}
+
+#[component]
+fn FolderIcon() -> impl IntoView {
+    view! {
+        <svg
+            class="folder-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M3.75 6.25h5.1l1.65 2h9.75c.97 0 1.75.78 1.75 1.75v7.75c0 .97-.78 1.75-1.75 1.75H3.75A1.75 1.75 0 0 1 2 17.75V8c0-.97.78-1.75 1.75-1.75Z" />
+            <path d="M2.5 10h19" />
+        </svg>
     }
 }
 
@@ -631,7 +835,7 @@ fn QueueRow(
                     aria-label=move || locale.get().t(Message::OpenOutputFolder)
                     on:click=move |_| on_open_output.run(output_path.clone())
                 >
-                    <span aria-hidden="true">"▰"</span>
+                    <FolderIcon />
                 </button>
                 <button
                     class="remove-item"
@@ -748,6 +952,17 @@ fn replace_scan_result(
     warnings.set(result.warnings);
     items.set(result.items);
     summary.set(BatchSummary::from_items(&items.get_untracked()));
+}
+
+fn filter_scan_result(result: ScanResult, mode: FolderConversionMode) -> ScanResult {
+    ScanResult {
+        items: result
+            .items
+            .into_iter()
+            .filter(|item| mode.accepts(item.conversion))
+            .collect(),
+        warnings: result.warnings,
+    }
 }
 
 fn completed_count(summary: &BatchSummary) -> usize {

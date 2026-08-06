@@ -1,5 +1,5 @@
 use font_converter_core::scanner;
-use font_converter_shared::{QueueItem, ScanResult};
+use font_converter_shared::{FolderConversionMode, QueueItem, ScanResult};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
@@ -30,10 +30,15 @@ pub fn pick_folder(app: AppHandle) -> Vec<String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn collect_inputs(paths: Vec<String>, output_directory: Option<String>) -> ScanResult {
-    scanner::collect(
+pub fn collect_inputs(
+    paths: Vec<String>,
+    output_directory: Option<String>,
+    folder_conversion_mode: Option<FolderConversionMode>,
+) -> ScanResult {
+    scanner::collect_with_folder_mode(
         &paths,
         output_directory.as_deref().map(std::path::Path::new),
+        folder_conversion_mode.unwrap_or(FolderConversionMode::Both),
     )
 }
 

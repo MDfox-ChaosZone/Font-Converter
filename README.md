@@ -1,43 +1,16 @@
 # Font Converter
 
-[English](#english) · [简体中文](#简体中文)
-
 ## 简介
 
-- Font Converter 是一个跨桌面平台的字体格式转换工具, 实现TTF/OTF与WOFF2的相互转换
-  - 将WOFF2转换为 TTF/OTF 时,会根据 WOFF2 文件中的 SFNT flavor信息自动选择转换为TTF还是OTF
-- 提供桌面 GUI 和命令行 CLI
-- 基于 Google WOFF2 参考实现.
-- 使用 Rust、Tauri 2 和 Leptos 构建
+Font Converter 是一个使用 Rust、Tauri 2 和 Leptos 构建的跨桌面平台字体格式转换工具，支持 TTF/OTF 与 WOFF2 互转，并提供 GUI 和命令行 CLI。
+
+将 WOFF2 转换为 TTF/OTF 时，程序会根据 WOFF2 文件中的 SFNT flavor 信息自动选择输出为 TrueType 或 CFF/OpenType。
 
 ## 发布版本
 
-| 发布版本 | 标签 | Brotli 版本 | 适用场景 |
-| --- | --- | --- | --- |
-| 正式版 | `v1.0.0` | Google/WOFF2项目使用的固定Brotli版本 `v1.0.3` | 广经检验，作为默认推荐版本 |
-| Alpha 实验版 | `v1.0.0-alpha.1` | 使用Brotli最新版本 `v1.2.0` | 提高TTF/OTF → WOFF2的转换速度 |
+当前正式发布版本为 `v1.0`。请前往[最新 Release](https://github.com/MDfox-ChaosZone/Font-Converter/releases/latest)下载 GUI 或 CLI 制品。
 
-在本项目的测试样本和测试环境中，Brotli 1.2.0 版本的 TTF/OTF → WOFF2 平均每轮耗时减少 12.73%，两种版本生成的转换字体哈希完全一致。WOFF2 → TTF/OTF 的解码耗时略有增加，详见下表：
-
-| 任务 | Brotli 1.0.3 | Brotli 1.2.0 | 差异 |
-| --- | ---: | ---: | ---: |
-| TTF/OTF → WOFF2，平均每轮耗时 | 83.599 秒 | 72.960 秒 | -12.73% |
-| WOFF2 → TTF/OTF，平均每轮耗时 | 441.038 ms | 450.320 ms | +2.11% |
-
-以下是测试样本中的字体文件：
-
-| 字体 | 格式 | 文件大小 |
-| --- | --- | ---: |
-| AlibabaPuHuiTi-3-75-SemiBold | OTF | 7.030 MB |
-| AlibabaPuHuiTi-3-75-SemiBold | WOFF2 | 5.481 MB |
-| KaTeX_Size1-Regular | TTF | 11.932 KB |
-| KaTeX_Size1-Regular | WOFF2 | 5.332 KB |
-| LXGWWenKai-Medium | TTF | 25.380 MB |
-| LXGWWenKai-Medium | WOFF2 | 8.953 MB |
-| MapleMonoNormalNL-Regular | TTF | 241.240 KB |
-| MapleMonoNormalNL-Regular | WOFF2 | 65.420 KB |
-| NotoColorEmoji-Regular | TTF | 25.112 MB |
-| NotoColorEmoji-Regular | WOFF2 | 5.715 MB |
+Windows 图形界面版本依赖系统 WebView2。未配置代码签名证书时，Windows 和 macOS 制品可能显示操作系统安全提示。
 
 ## CLI使用
 

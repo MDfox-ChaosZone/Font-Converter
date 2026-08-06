@@ -11,6 +11,34 @@ pub enum ConversionKind {
     Woff2ToOtf,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FolderConversionMode {
+    FontToWoff2,
+    Woff2ToFont,
+    Both,
+}
+
+impl FolderConversionMode {
+    pub fn accepts(self, conversion: ConversionKind) -> bool {
+        match self {
+            Self::FontToWoff2 => {
+                matches!(
+                    conversion,
+                    ConversionKind::TtfToWoff2 | ConversionKind::OtfToWoff2
+                )
+            }
+            Self::Woff2ToFont => {
+                matches!(
+                    conversion,
+                    ConversionKind::Woff2ToTtf | ConversionKind::Woff2ToOtf
+                )
+            }
+            Self::Both => true,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ItemStatus {
