@@ -2,9 +2,8 @@
 
 ## 简介
 
-Font Converter 是一个跨桌面平台字体格式转换工具
-- 支持 TTF/OTF 与 WOFF2 相互转换
-  - 将 WOFF2 转换为 TTF/OTF 时，程序会根据 WOFF2 文件中的 SFNT flavor 信息自动选择转换为 TTF 或 OTF。
+Font Converter 是一个跨桌面平台字体格式转换工具,支持 TTF/OTF 与 WOFF2 相互转换
+- 将 WOFF2 转换为 TTF/OTF 时，程序会根据 WOFF2 文件中的 SFNT flavor 信息自动选择转换为 TTF 或 OTF。
 - 使用 Rust、Tauri 2 和 Leptos 构建
 - 同时提供 GUI 和 CLI。
 
