@@ -11,7 +11,7 @@ Font Converter 是一个跨桌面平台字体格式转换工具,支持 TTF/OTF �
 
 ## 发布版本
 
-当前正式发布版本为 `v1.0`。请前往[最新 Release](https://github.com/MDfox-ChaosZone/Font-Converter/releases/latest)下载 GUI 或 CLI 制品。
+当前正式发布版本为 `v1.0`。`main` 分支使用 Google Brotli `v1.2.0`。请前往[最新 Release](https://github.com/MDfox-ChaosZone/Font-Converter/releases/latest)下载 GUI 或 CLI 制品。
 
 Windows 图形界面版本依赖系统 WebView2。未配置代码签名证书时，Windows 和 macOS 制品可能显示操作系统安全提示。
 

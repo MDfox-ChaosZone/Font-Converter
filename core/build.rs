@@ -20,27 +20,41 @@ const BROTLI_ENCODER_SOURCES: &[&str] = &[
     "c/enc/block_splitter.c",
     "c/enc/brotli_bit_stream.c",
     "c/enc/cluster.c",
+    "c/enc/command.c",
     "c/enc/compress_fragment.c",
     "c/enc/compress_fragment_two_pass.c",
+    "c/enc/compound_dictionary.c",
     "c/enc/dictionary_hash.c",
     "c/enc/encode.c",
     "c/enc/encoder_dict.c",
     "c/enc/entropy_encode.c",
+    "c/enc/fast_log.c",
     "c/enc/histogram.c",
     "c/enc/literal_cost.c",
     "c/enc/memory.c",
     "c/enc/metablock.c",
     "c/enc/static_dict.c",
+    "c/enc/static_dict_lut.c",
+    "c/enc/static_init.c",
     "c/enc/utf8_util.c",
 ];
 
-const BROTLI_COMMON_SOURCES: &[&str] = &["c/common/dictionary.c", "c/common/transform.c"];
+const BROTLI_COMMON_SOURCES: &[&str] = &[
+    "c/common/constants.c",
+    "c/common/context.c",
+    "c/common/dictionary.c",
+    "c/common/platform.c",
+    "c/common/shared_dictionary.c",
+    "c/common/transform.c",
+];
 
 const BROTLI_DECODER_SOURCES: &[&str] = &[
     "c/dec/bit_reader.c",
     "c/dec/decode.c",
     "c/dec/huffman.c",
+    "c/dec/prefix.c",
     "c/dec/state.c",
+    "c/dec/static_init.c",
 ];
 
 fn main() {
@@ -52,7 +66,7 @@ fn build_google_woff2() {
         std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set"),
     );
     let upstream = manifest_dir.join("../vendor/woff2");
-    let brotli = upstream.join("brotli");
+    let brotli = manifest_dir.join("../vendor/brotli");
 
     require_checkout(&upstream.join("include/woff2/encode.h"));
     require_checkout(&upstream.join("include/woff2/decode.h"));
