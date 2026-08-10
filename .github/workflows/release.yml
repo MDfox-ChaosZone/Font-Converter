@@ -213,7 +213,43 @@ jobs:
 
           {
             cat <<'EOF'
-          ## 下载说明 / Downloads
+          ## Downloads
+
+          Choose the artifact that matches your operating system and CPU architecture. Use `x64` or `x86_64` for 64-bit Intel/AMD systems and `arm64` for ARM64 systems.
+
+          | Desktop artifact | Platform |
+          | --- | --- |
+          EOF
+            asset_link "Windows x64 portable" "Font-Converter-windows-x64-portable.exe" "Windows 10/11 x64 (Intel/AMD)"
+            asset_link "Windows ARM64 portable" "Font-Converter-windows-arm64-portable.exe" "Windows ARM64"
+            asset_link "Linux x86_64 AppImage" "Font-Converter-linux-x86_64.AppImage" "Linux x86_64"
+            asset_link "Linux x86_64 DEB" "Font-Converter-linux-x86_64.deb" "Debian/Ubuntu and related x86_64 distributions"
+            asset_link "Linux x86_64 RPM" "Font-Converter-linux-x86_64.rpm" "Fedora/RHEL/openSUSE and related x86_64 distributions"
+            asset_link "Linux ARM64 AppImage" "Font-Converter-linux-arm64.AppImage" "Linux ARM64"
+            asset_link "Linux ARM64 DEB" "Font-Converter-linux-arm64.deb" "Debian/Ubuntu and related ARM64 distributions"
+            asset_link "Linux ARM64 RPM" "Font-Converter-linux-arm64.rpm" "Fedora/RHEL/openSUSE and related ARM64 distributions"
+            asset_link "macOS Apple Silicon DMG" "Font-Converter-macos-arm64.dmg" "Apple Silicon Mac"
+
+            cat <<'EOF'
+
+          ### CLI binaries
+
+          The CLI is intended for scripts, batch conversion, and headless environments.
+
+          | CLI artifact | Platform |
+          | --- | --- |
+          EOF
+            asset_link "Windows x64 CLI" "Font-Converter-cli-windows-x64.exe" "Windows x64 (Intel/AMD)"
+            asset_link "Windows ARM64 CLI" "Font-Converter-cli-windows-arm64.exe" "Windows ARM64"
+            asset_link "Linux x86_64 CLI" "Font-Converter-cli-linux-x86_64" "Linux x86_64"
+            asset_link "Linux ARM64 CLI" "Font-Converter-cli-linux-arm64" "Linux ARM64"
+            asset_link "macOS ARM64 CLI" "Font-Converter-cli-macos-arm64" "Apple Silicon Mac"
+
+            cat <<'EOF'
+
+          ---
+
+          ## 下载说明
 
           请根据操作系统和 CPU 架构选择制品。Intel/AMD 64 位使用 `x64` 或 `x86_64`，ARM 64 位使用 `arm64`。
 
@@ -244,10 +280,6 @@ jobs:
             asset_link "Linux x86_64 CLI" "Font-Converter-cli-linux-x86_64" "Linux x86_64"
             asset_link "Linux ARM64 CLI" "Font-Converter-cli-linux-arm64" "Linux ARM64"
             asset_link "macOS ARM64 CLI" "Font-Converter-cli-macos-arm64" "Apple Silicon Mac"
-
-            cat <<'EOF'
-
-          Windows 图形界面版本依赖系统 WebView2。当前 Release 不提供 Intel macOS 制品。
           EOF
           } > RELEASE_NOTES.md
 
