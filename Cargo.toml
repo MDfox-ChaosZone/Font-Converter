@@ -3,7 +3,7 @@ resolver = "2"
 members = ["cli", "core", "frontend", "shared", "src-tauri"]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Cross-platform TTF, OTF, and WOFF2 font converter with a desktop GUI and CLI"

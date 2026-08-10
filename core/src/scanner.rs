@@ -11,6 +11,31 @@ use font_converter_shared::{
 use uuid::Uuid;
 use walkdir::WalkDir;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExistingOutputPolicy {
+    Skip,
+    Error,
+    Overwrite,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct CollectOptions<'a> {
+    output_directory: Option<&'a Path>,
+    folder_mode: FolderConversionMode,
+    filter_explicit_files: bool,
+    preserve_directory_structure: bool,
+    existing_output: ExistingOutputPolicy,
+    output_conflicts_are_errors: bool,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FileOptions<'a> {
+    folder_mode: Option<FolderConversionMode>,
+    relative_directory: Option<&'a Path>,
+    existing_output: ExistingOutputPolicy,
+    output_conflicts_are_errors: bool,
+}
+
 pub fn collect(paths: &[String], output_directory: Option<&Path>) -> ScanResult {
     collect_with_folder_mode(paths, output_directory, FolderConversionMode::Both)
 }
@@ -20,10 +45,43 @@ pub fn collect_with_folder_mode(
     output_directory: Option<&Path>,
     folder_mode: FolderConversionMode,
 ) -> ScanResult {
+    collect_with_options(
+        paths,
+        CollectOptions {
+            output_directory,
+            folder_mode,
+            filter_explicit_files: false,
+            preserve_directory_structure: false,
+            existing_output: ExistingOutputPolicy::Skip,
+            output_conflicts_are_errors: false,
+        },
+    )
+}
+
+pub fn collect_for_cli(
+    paths: &[String],
+    output_directory: Option<&Path>,
+    mode: FolderConversionMode,
+    existing_output: ExistingOutputPolicy,
+) -> ScanResult {
+    collect_with_options(
+        paths,
+        CollectOptions {
+            output_directory,
+            folder_mode: mode,
+            filter_explicit_files: true,
+            preserve_directory_structure: true,
+            existing_output,
+            output_conflicts_are_errors: true,
+        },
+    )
+}
+
+fn collect_with_options(paths: &[String], options: CollectOptions<'_>) -> ScanResult {
     let mut result = ScanResult::default();
     let mut seen = HashSet::new();
     let mut seen_outputs = HashSet::new();
-    let output_directory = match output_directory {
+    let output_directory = match options.output_directory {
         Some(path) => match fs::canonicalize(path) {
             Ok(path) if path.is_dir() => Some(path),
             Ok(_) => {
@@ -46,13 +104,14 @@ pub fn collect_with_folder_mode(
     for raw_path in paths {
         let path = PathBuf::from(raw_path);
         if path.is_dir() {
+            let scan_root = fs::canonicalize(&path).unwrap_or(path);
             collect_directory(
-                &path,
+                &scan_root,
                 output_directory.as_deref(),
                 &mut seen,
                 &mut seen_outputs,
                 &mut result,
-                folder_mode,
+                options,
             );
         } else if path.is_file() {
             collect_file(
@@ -61,7 +120,12 @@ pub fn collect_with_folder_mode(
                 &mut seen,
                 &mut seen_outputs,
                 &mut result,
-                None,
+                FileOptions {
+                    folder_mode: options.filter_explicit_files.then_some(options.folder_mode),
+                    relative_directory: None,
+                    existing_output: options.existing_output,
+                    output_conflicts_are_errors: options.output_conflicts_are_errors,
+                },
             );
         } else {
             result
@@ -82,9 +146,15 @@ fn collect_directory(
     seen: &mut HashSet<PathBuf>,
     seen_outputs: &mut HashSet<String>,
     result: &mut ScanResult,
-    folder_mode: FolderConversionMode,
+    options: CollectOptions<'_>,
 ) {
-    for entry in WalkDir::new(path).follow_links(false) {
+    let nested_output =
+        output_directory.filter(|directory| directory.starts_with(path) && *directory != path);
+    let entries = WalkDir::new(path)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| nested_output != Some(entry.path()));
+    for entry in entries {
         match entry {
             Ok(entry) if entry.file_type().is_file() => {
                 if is_supported_extension(entry.path()) {
@@ -94,7 +164,19 @@ fn collect_directory(
                         seen,
                         seen_outputs,
                         result,
-                        Some(folder_mode),
+                        FileOptions {
+                            folder_mode: Some(options.folder_mode),
+                            relative_directory: options.preserve_directory_structure.then(|| {
+                                entry
+                                    .path()
+                                    .strip_prefix(path)
+                                    .unwrap_or(entry.path())
+                                    .parent()
+                                    .unwrap_or_else(|| Path::new(""))
+                            }),
+                            existing_output: options.existing_output,
+                            output_conflicts_are_errors: options.output_conflicts_are_errors,
+                        },
                     );
                 }
             }
@@ -113,7 +195,7 @@ fn collect_file(
     seen: &mut HashSet<PathBuf>,
     seen_outputs: &mut HashSet<String>,
     result: &mut ScanResult,
-    folder_mode: Option<FolderConversionMode>,
+    options: FileOptions<'_>,
 ) {
     if !is_supported_extension(path) {
         result.warnings.push(warning(
@@ -141,7 +223,10 @@ fn collect_file(
             return;
         }
     };
-    if folder_mode.is_some_and(|mode| !mode.accepts(conversion)) {
+    if options
+        .folder_mode
+        .is_some_and(|mode| !mode.accepts(conversion))
+    {
         return;
     }
     let output = match output_directory {
@@ -152,11 +237,24 @@ fn collect_file(
                     .push(warning(&canonical, "Cannot determine the output file name"));
                 return;
             };
-            directory.join(file_name)
+            directory
+                .join(options.relative_directory.unwrap_or_else(|| Path::new("")))
+                .join(file_name)
         }
         None => default_output,
     };
-    let output_conflicts = !seen_outputs.insert(output.to_string_lossy().to_lowercase());
+    let output_key = output.to_string_lossy().to_lowercase();
+    let output_conflicts = !seen_outputs.insert(output_key.clone());
+    if output_conflicts
+        && options.output_conflicts_are_errors
+        && let Some(existing_item) = result
+            .items
+            .iter_mut()
+            .find(|item| item.output_path.to_lowercase() == output_key)
+    {
+        existing_item.status = ItemStatus::Failed;
+        existing_item.message = Some("Output path conflicts with another input font".into());
+    }
     let output_exists = output.exists();
     let output_bytes = output_exists
         .then(|| fs::metadata(&output).ok().map(|metadata| metadata.len()))
@@ -168,15 +266,36 @@ fn collect_file(
         output_path: output.to_string_lossy().into_owned(),
         input_bytes: fs::metadata(&canonical).ok().map(|metadata| metadata.len()),
         output_bytes,
-        status: if output_exists || output_conflicts {
+        status: if output_conflicts && options.output_conflicts_are_errors {
+            ItemStatus::Failed
+        } else if output_conflicts {
             ItemStatus::Skipped
+        } else if output_exists {
+            match options.existing_output {
+                ExistingOutputPolicy::Skip => ItemStatus::Skipped,
+                ExistingOutputPolicy::Error => ItemStatus::Failed,
+                ExistingOutputPolicy::Overwrite => ItemStatus::Queued,
+            }
         } else {
             ItemStatus::Queued
         },
         message: if output_conflicts {
-            Some("Output path conflicts with another queued font".into())
+            Some(
+                if options.output_conflicts_are_errors {
+                    "Output path conflicts with another input font"
+                } else {
+                    "Output path conflicts with another queued font"
+                }
+                .into(),
+            )
         } else {
-            output_exists.then(|| "Output file already exists".into())
+            output_exists.then(|| match options.existing_output {
+                ExistingOutputPolicy::Skip => "Output file already exists".into(),
+                ExistingOutputPolicy::Error => {
+                    "Output file already exists and policy is error".into()
+                }
+                ExistingOutputPolicy::Overwrite => "Existing output will be replaced".into(),
+            })
         },
     });
 }
@@ -377,6 +496,131 @@ mod tests {
             Path::new(&result.items[0].output_path),
             ConversionKind::TtfToWoff2
         ));
+    }
+
+    #[test]
+    fn cli_collection_preserves_relative_directories() {
+        let input_directory = tempfile::tempdir().unwrap();
+        let output_directory = tempfile::tempdir().unwrap();
+        let nested = input_directory.path().join("family").join("weight");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(nested.join("font.ttf"), b"fixture").unwrap();
+
+        let result = collect_for_cli(
+            &[input_directory.path().to_string_lossy().into_owned()],
+            Some(output_directory.path()),
+            FolderConversionMode::FontToWoff2,
+            ExistingOutputPolicy::Skip,
+        );
+
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(
+            Path::new(&result.items[0].output_path),
+            fs::canonicalize(output_directory.path())
+                .unwrap()
+                .join("family")
+                .join("weight")
+                .join("font.woff2")
+        );
+    }
+
+    #[test]
+    fn cli_collection_applies_mode_to_explicit_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let font = directory.path().join("font.ttf");
+        fs::write(&font, b"fixture").unwrap();
+
+        let result = collect_for_cli(
+            &[font.to_string_lossy().into_owned()],
+            None,
+            FolderConversionMode::Woff2ToFont,
+            ExistingOutputPolicy::Skip,
+        );
+
+        assert!(result.items.is_empty());
+        assert!(result.warnings.is_empty());
+    }
+
+    #[test]
+    fn cli_collection_supports_existing_output_policies() {
+        let input_directory = tempfile::tempdir().unwrap();
+        let output_directory = tempfile::tempdir().unwrap();
+        let font = input_directory.path().join("font.ttf");
+        fs::write(&font, b"fixture").unwrap();
+        fs::write(output_directory.path().join("font.woff2"), b"existing").unwrap();
+        let paths = &[font.to_string_lossy().into_owned()];
+
+        let skipped = collect_for_cli(
+            paths,
+            Some(output_directory.path()),
+            FolderConversionMode::Both,
+            ExistingOutputPolicy::Skip,
+        );
+        assert_eq!(skipped.items[0].status, ItemStatus::Skipped);
+
+        let failed = collect_for_cli(
+            paths,
+            Some(output_directory.path()),
+            FolderConversionMode::Both,
+            ExistingOutputPolicy::Error,
+        );
+        assert_eq!(failed.items[0].status, ItemStatus::Failed);
+
+        let overwrite = collect_for_cli(
+            paths,
+            Some(output_directory.path()),
+            FolderConversionMode::Both,
+            ExistingOutputPolicy::Overwrite,
+        );
+        assert_eq!(overwrite.items[0].status, ItemStatus::Queued);
+    }
+
+    #[test]
+    fn cli_collection_fails_every_item_with_the_same_output() {
+        let first_directory = tempfile::tempdir().unwrap();
+        let second_directory = tempfile::tempdir().unwrap();
+        let output_directory = tempfile::tempdir().unwrap();
+        let first = first_directory.path().join("font.ttf");
+        let second = second_directory.path().join("font.ttf");
+        fs::write(&first, b"first").unwrap();
+        fs::write(&second, b"second").unwrap();
+
+        let result = collect_for_cli(
+            &[
+                first.to_string_lossy().into_owned(),
+                second.to_string_lossy().into_owned(),
+            ],
+            Some(output_directory.path()),
+            FolderConversionMode::FontToWoff2,
+            ExistingOutputPolicy::Overwrite,
+        );
+
+        assert_eq!(result.items.len(), 2);
+        assert!(
+            result
+                .items
+                .iter()
+                .all(|item| item.status == ItemStatus::Failed)
+        );
+    }
+
+    #[test]
+    fn cli_collection_does_not_rescan_nested_output_directory() {
+        let input_directory = tempfile::tempdir().unwrap();
+        let output_directory = input_directory.path().join("converted");
+        fs::create_dir(&output_directory).unwrap();
+        fs::write(input_directory.path().join("source.ttf"), b"fixture").unwrap();
+        fs::write(output_directory.join("old.ttf"), b"fixture").unwrap();
+
+        let result = collect_for_cli(
+            &[input_directory.path().to_string_lossy().into_owned()],
+            Some(&output_directory),
+            FolderConversionMode::FontToWoff2,
+            ExistingOutputPolicy::Skip,
+        );
+
+        assert_eq!(result.items.len(), 1);
+        assert!(result.items[0].input_path.ends_with("source.ttf"));
     }
 
     #[test]

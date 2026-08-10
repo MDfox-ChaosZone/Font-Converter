@@ -1130,7 +1130,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "font-converter"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "font-converter-core",
  "font-converter-shared",
@@ -1138,12 +1138,13 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tempfile",
+ "tokio",
  "uuid",
 ]
 
 [[package]]
 name = "font-converter-cli"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "clap",
  "ctrlc",
@@ -1151,11 +1152,12 @@ dependencies = [
  "font-converter-shared",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
 name = "font-converter-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "cc",
  "font-converter-shared",
@@ -1166,7 +1168,7 @@ dependencies = [
 
 [[package]]
 name = "font-converter-frontend"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "font-converter-shared",
  "js-sys",
@@ -1180,7 +1182,7 @@ dependencies = [
 
 [[package]]
 name = "font-converter-shared"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "serde",
 ]

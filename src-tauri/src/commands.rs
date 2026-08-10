@@ -7,26 +7,38 @@ use tauri_plugin_dialog::DialogExt;
 use crate::batch::BatchManager;
 
 #[tauri::command]
-pub fn pick_files(app: AppHandle) -> Vec<String> {
+pub async fn pick_files(app: AppHandle) -> Vec<String> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
     app.dialog()
         .file()
         .add_filter("Supported fonts", &["ttf", "otf", "woff2"])
-        .blocking_pick_files()
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|path| path.into_path().ok())
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect()
+        .pick_files(move |paths| {
+            let paths = paths
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|path| path.into_path().ok())
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect::<Vec<_>>();
+            let _ = sender.send(paths);
+        });
+
+    receiver.await.unwrap_or_default()
 }
 
 #[tauri::command]
-pub fn pick_folder(app: AppHandle) -> Vec<String> {
-    app.dialog()
-        .file()
-        .blocking_pick_folder()
-        .and_then(|path| path.into_path().ok())
-        .map(|path| vec![path.to_string_lossy().into_owned()])
-        .unwrap_or_default()
+pub async fn pick_folder(app: AppHandle) -> Vec<String> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    app.dialog().file().pick_folder(move |path| {
+        let paths = path
+            .and_then(|path| path.into_path().ok())
+            .map(|path| vec![path.to_string_lossy().into_owned()])
+            .unwrap_or_default();
+        let _ = sender.send(paths);
+    });
+
+    receiver.await.unwrap_or_default()
 }
 
 #[tauri::command(rename_all = "camelCase")]

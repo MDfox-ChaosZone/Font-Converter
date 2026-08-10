@@ -60,7 +60,16 @@ pub fn convert(
     output: &Path,
     conversion: ConversionKind,
 ) -> Result<ConversionOutput, ConversionError> {
-    if output.exists() {
+    convert_with_overwrite(input, output, conversion, false)
+}
+
+pub fn convert_with_overwrite(
+    input: &Path,
+    output: &Path,
+    conversion: ConversionKind,
+    overwrite: bool,
+) -> Result<ConversionOutput, ConversionError> {
+    if output.exists() && !overwrite {
         return Err(ConversionError::AlreadyExists);
     }
 
@@ -82,7 +91,13 @@ pub fn convert(
     temporary.flush().map_err(failed)?;
     temporary.as_file().sync_all().map_err(failed)?;
 
-    match temporary.persist_noclobber(output) {
+    let persisted = if overwrite {
+        temporary.persist(output)
+    } else {
+        temporary.persist_noclobber(output)
+    };
+
+    match persisted {
         Ok(file) => {
             file.sync_all().map_err(failed)?;
             Ok(ConversionOutput {
@@ -90,7 +105,7 @@ pub fn convert(
                 output_bytes: converted.len() as u64,
             })
         }
-        Err(_error) if output.exists() => Err(ConversionError::AlreadyExists),
+        Err(_error) if output.exists() && !overwrite => Err(ConversionError::AlreadyExists),
         Err(error) => Err(ConversionError::Failed(error.error.to_string())),
     }
 }
@@ -224,6 +239,21 @@ mod tests {
         let first_bytes = fs::read(first).unwrap();
         assert_eq!(&first_bytes[..4], b"wOF2");
         assert_eq!(first_bytes, fs::read(second).unwrap());
+    }
+
+    #[test]
+    fn existing_output_is_replaced_when_configured() {
+        let Some(font) = std::env::var_os("FONT_CONVERTER_TEST_FONT") else {
+            return;
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("font.woff2");
+        fs::write(&output, b"replace me").unwrap();
+
+        convert_with_overwrite(Path::new(&font), &output, ConversionKind::TtfToWoff2, true)
+            .unwrap();
+
+        assert_eq!(&fs::read(output).unwrap()[..4], b"wOF2");
     }
 
     #[test]
