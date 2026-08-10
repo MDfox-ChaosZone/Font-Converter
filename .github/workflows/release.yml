@@ -61,7 +61,7 @@ jobs:
 
       - name: Install Trunk
         if: matrix.target != 'aarch64-pc-windows-msvc' && matrix.cli_only != true
-        uses: taiki-e/install-action@v2.85.5
+        uses: taiki-e/install-action@v2.85.9
         with:
           tool: trunk
 
