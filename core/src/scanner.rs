@@ -6,7 +6,7 @@ use std::{
 };
 
 use font_converter_shared::{
-    ConversionKind, FolderConversionMode, ItemStatus, QueueItem, ScanResult, ScanWarning,
+    ConversionKind, ErrorCode, FolderConversionMode, ItemStatus, QueueItem, ScanResult, ScanWarning,
 };
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -24,14 +24,15 @@ struct CollectOptions<'a> {
     folder_mode: FolderConversionMode,
     filter_explicit_files: bool,
     preserve_directory_structure: bool,
+    allow_missing_output_directory: bool,
     existing_output: ExistingOutputPolicy,
     output_conflicts_are_errors: bool,
 }
 
-#[derive(Clone, Copy, Debug)]
-struct FileOptions<'a> {
+#[derive(Clone, Debug)]
+struct FileOptions {
     folder_mode: Option<FolderConversionMode>,
-    relative_directory: Option<&'a Path>,
+    relative_directory: Option<PathBuf>,
     existing_output: ExistingOutputPolicy,
     output_conflicts_are_errors: bool,
 }
@@ -52,6 +53,7 @@ pub fn collect_with_folder_mode(
             folder_mode,
             filter_explicit_files: false,
             preserve_directory_structure: false,
+            allow_missing_output_directory: false,
             existing_output: ExistingOutputPolicy::Skip,
             output_conflicts_are_errors: false,
         },
@@ -64,17 +66,22 @@ pub fn collect_for_cli(
     mode: FolderConversionMode,
     existing_output: ExistingOutputPolicy,
 ) -> ScanResult {
-    collect_with_options(
+    let mut result = collect_with_options(
         paths,
         CollectOptions {
             output_directory,
             folder_mode: mode,
             filter_explicit_files: true,
             preserve_directory_structure: true,
+            allow_missing_output_directory: true,
             existing_output,
             output_conflicts_are_errors: true,
         },
-    )
+    );
+    for (index, item) in result.items.iter_mut().enumerate() {
+        item.id = (index + 1).to_string();
+    }
+    result
 }
 
 fn collect_with_options(paths: &[String], options: CollectOptions<'_>) -> ScanResult {
@@ -85,14 +92,23 @@ fn collect_with_options(paths: &[String], options: CollectOptions<'_>) -> ScanRe
         Some(path) => match fs::canonicalize(path) {
             Ok(path) if path.is_dir() => Some(path),
             Ok(_) => {
-                result
-                    .warnings
-                    .push(warning(path, "The output path is not a directory"));
+                result.warnings.push(warning(
+                    path,
+                    ErrorCode::OutputUnwritable,
+                    "The output path is not a directory",
+                ));
                 return result;
+            }
+            Err(error)
+                if options.allow_missing_output_directory
+                    && error.kind() == std::io::ErrorKind::NotFound =>
+            {
+                Some(absolute_path(path))
             }
             Err(error) => {
                 result.warnings.push(warning(
                     path,
+                    ErrorCode::OutputUnwritable,
                     &format!("Cannot access the output directory: {error}"),
                 ));
                 return result;
@@ -101,8 +117,13 @@ fn collect_with_options(paths: &[String], options: CollectOptions<'_>) -> ScanRe
         None => None,
     };
 
+    let group_multiple_roots =
+        options.preserve_directory_structure && output_directory.is_some() && paths.len() > 1;
     for raw_path in paths {
         let path = PathBuf::from(raw_path);
+        let root_prefix = group_multiple_roots
+            .then(|| input_group_name(&path))
+            .flatten();
         if path.is_dir() {
             let scan_root = fs::canonicalize(&path).unwrap_or(path);
             collect_directory(
@@ -112,6 +133,7 @@ fn collect_with_options(paths: &[String], options: CollectOptions<'_>) -> ScanRe
                 &mut seen_outputs,
                 &mut result,
                 options,
+                root_prefix.as_deref(),
             );
         } else if path.is_file() {
             collect_file(
@@ -122,15 +144,17 @@ fn collect_with_options(paths: &[String], options: CollectOptions<'_>) -> ScanRe
                 &mut result,
                 FileOptions {
                     folder_mode: options.filter_explicit_files.then_some(options.folder_mode),
-                    relative_directory: None,
+                    relative_directory: root_prefix,
                     existing_output: options.existing_output,
                     output_conflicts_are_errors: options.output_conflicts_are_errors,
                 },
             );
         } else {
-            result
-                .warnings
-                .push(warning(&path, "Path does not exist or cannot be accessed"));
+            result.warnings.push(warning(
+                &path,
+                ErrorCode::InputNotFound,
+                "Path does not exist or cannot be accessed",
+            ));
         }
     }
 
@@ -147,6 +171,7 @@ fn collect_directory(
     seen_outputs: &mut HashSet<String>,
     result: &mut ScanResult,
     options: CollectOptions<'_>,
+    root_prefix: Option<&Path>,
 ) {
     let nested_output =
         output_directory.filter(|directory| directory.starts_with(path) && *directory != path);
@@ -158,6 +183,20 @@ fn collect_directory(
         match entry {
             Ok(entry) if entry.file_type().is_file() => {
                 if is_supported_extension(entry.path()) {
+                    let nested_directory = options.preserve_directory_structure.then(|| {
+                        entry
+                            .path()
+                            .strip_prefix(path)
+                            .unwrap_or(entry.path())
+                            .parent()
+                            .unwrap_or_else(|| Path::new(""))
+                    });
+                    let relative_directory = match (root_prefix, nested_directory) {
+                        (Some(prefix), Some(nested)) => Some(prefix.join(nested)),
+                        (Some(prefix), None) => Some(prefix.to_path_buf()),
+                        (None, Some(nested)) => Some(nested.to_path_buf()),
+                        (None, None) => None,
+                    };
                     collect_file(
                         entry.path(),
                         output_directory,
@@ -166,14 +205,7 @@ fn collect_directory(
                         result,
                         FileOptions {
                             folder_mode: Some(options.folder_mode),
-                            relative_directory: options.preserve_directory_structure.then(|| {
-                                entry
-                                    .path()
-                                    .strip_prefix(path)
-                                    .unwrap_or(entry.path())
-                                    .parent()
-                                    .unwrap_or_else(|| Path::new(""))
-                            }),
+                            relative_directory,
                             existing_output: options.existing_output,
                             output_conflicts_are_errors: options.output_conflicts_are_errors,
                         },
@@ -183,6 +215,7 @@ fn collect_directory(
             Ok(_) => {}
             Err(error) => result.warnings.push(ScanWarning {
                 path: error.path().unwrap_or(path).to_string_lossy().into_owned(),
+                error_code: ErrorCode::InputUnreadable,
                 message: error.to_string(),
             }),
         }
@@ -195,11 +228,12 @@ fn collect_file(
     seen: &mut HashSet<PathBuf>,
     seen_outputs: &mut HashSet<String>,
     result: &mut ScanResult,
-    options: FileOptions<'_>,
+    options: FileOptions,
 ) {
     if !is_supported_extension(path) {
         result.warnings.push(warning(
             path,
+            ErrorCode::UnsupportedFormat,
             "Only .ttf, .otf, and .woff2 files are supported",
         ));
         return;
@@ -208,7 +242,11 @@ fn collect_file(
     let canonical = match fs::canonicalize(path) {
         Ok(path) => path,
         Err(error) => {
-            result.warnings.push(warning(path, &error.to_string()));
+            result.warnings.push(warning(
+                path,
+                ErrorCode::InputUnreadable,
+                &error.to_string(),
+            ));
             return;
         }
     };
@@ -219,7 +257,9 @@ fn collect_file(
     let (conversion, default_output) = match conversion_for(&canonical) {
         Ok(conversion) => conversion,
         Err(message) => {
-            result.warnings.push(warning(&canonical, &message));
+            result
+                .warnings
+                .push(warning(&canonical, ErrorCode::InvalidFont, &message));
             return;
         }
     };
@@ -232,13 +272,20 @@ fn collect_file(
     let output = match output_directory {
         Some(directory) => {
             let Some(file_name) = default_output.file_name() else {
-                result
-                    .warnings
-                    .push(warning(&canonical, "Cannot determine the output file name"));
+                result.warnings.push(warning(
+                    &canonical,
+                    ErrorCode::OutputUnwritable,
+                    "Cannot determine the output file name",
+                ));
                 return;
             };
             directory
-                .join(options.relative_directory.unwrap_or_else(|| Path::new("")))
+                .join(
+                    options
+                        .relative_directory
+                        .as_deref()
+                        .unwrap_or_else(|| Path::new("")),
+                )
                 .join(file_name)
         }
         None => default_output,
@@ -253,6 +300,7 @@ fn collect_file(
             .find(|item| item.output_path.to_lowercase() == output_key)
     {
         existing_item.status = ItemStatus::Failed;
+        existing_item.error_code = Some(ErrorCode::OutputConflict);
         existing_item.message = Some("Output path conflicts with another input font".into());
     }
     let output_exists = output.exists();
@@ -278,6 +326,18 @@ fn collect_file(
             }
         } else {
             ItemStatus::Queued
+        },
+        error_code: if output_conflicts {
+            Some(ErrorCode::OutputConflict)
+        } else if output_exists {
+            match options.existing_output {
+                ExistingOutputPolicy::Skip | ExistingOutputPolicy::Error => {
+                    Some(ErrorCode::OutputExists)
+                }
+                ExistingOutputPolicy::Overwrite => None,
+            }
+        } else {
+            None
         },
         message: if output_conflicts {
             Some(
@@ -349,10 +409,29 @@ pub(crate) fn is_valid_output_for(input: &Path, output: &Path, conversion: Conve
     })
 }
 
-fn warning(path: &Path, message: &str) -> ScanWarning {
+fn warning(path: &Path, error_code: ErrorCode, message: &str) -> ScanWarning {
     ScanWarning {
         path: path.to_string_lossy().into_owned(),
+        error_code,
         message: message.into(),
+    }
+}
+
+fn absolute_path(path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(path)
+    }
+}
+
+fn input_group_name(path: &Path) -> Option<PathBuf> {
+    if path.is_dir() {
+        path.file_name().map(PathBuf::from)
+    } else {
+        path.parent().and_then(Path::file_name).map(PathBuf::from)
     }
 }
 
@@ -576,7 +655,7 @@ mod tests {
     }
 
     #[test]
-    fn cli_collection_fails_every_item_with_the_same_output() {
+    fn cli_collection_groups_multiple_input_roots() {
         let first_directory = tempfile::tempdir().unwrap();
         let second_directory = tempfile::tempdir().unwrap();
         let output_directory = tempfile::tempdir().unwrap();
@@ -600,8 +679,19 @@ mod tests {
             result
                 .items
                 .iter()
-                .all(|item| item.status == ItemStatus::Failed)
+                .all(|item| item.status == ItemStatus::Queued)
         );
+        assert_ne!(result.items[0].output_path, result.items[1].output_path);
+        for directory in [&first_directory, &second_directory] {
+            let expected_suffix =
+                PathBuf::from(directory.path().file_name().unwrap()).join("font.woff2");
+            assert!(
+                result
+                    .items
+                    .iter()
+                    .any(|item| { Path::new(&item.output_path).ends_with(&expected_suffix) })
+            );
+        }
     }
 
     #[test]

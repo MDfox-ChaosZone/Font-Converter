@@ -18,11 +18,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
-          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2.85.13
+      - uses: actions/setup-node@v7
         with:
-          tool: trunk
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
 
       - name: Install Tauri system dependencies
         run: |
@@ -49,11 +53,8 @@ jobs:
       - name: Run Clippy
         run: cargo clippy -p font-converter-shared -p font-converter-core -p font-converter-cli -p font-converter --all-targets -- -D warnings
 
-      - name: Check the Leptos WebAssembly frontend
-        run: cargo check -p font-converter-frontend --target wasm32-unknown-unknown
-
-      - name: Build the static frontend
-        run: trunk build --config frontend/Trunk.toml --release
+      - name: Check and build the Vue frontend
+        run: npm run build --prefix frontend
 
       - name: Build the CLI
         run: cargo build -p font-converter-cli --release
@@ -80,16 +81,18 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown,${{ matrix.target }}
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - uses: taiki-e/install-action@v2.85.13
-        with:
-          tool: trunk
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'

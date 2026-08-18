@@ -1,6 +1,6 @@
 /target
 /frontend/dist
-/frontend/.trunk
+/frontend/node_modules
 /src-tauri/gen/schemas
 /.idea
 /.vscode

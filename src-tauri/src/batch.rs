@@ -9,13 +9,15 @@ use std::{
 };
 
 use font_converter_core::{converter, scanner};
-use font_converter_shared::{BatchSummary, ItemStatus, PROGRESS_EVENT, ProgressEvent, QueueItem};
+use font_converter_shared::{
+    BatchSummary, ErrorCode, ItemStatus, PROGRESS_EVENT, ProgressEvent, QueueItem,
+};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 use font_converter_core::converter::ConversionError;
 
-const MAX_PARALLEL_CONVERSIONS: usize = 4;
+pub const MAX_PARALLEL_CONVERSIONS: usize = 32;
 
 #[derive(Clone, Default)]
 pub struct BatchManager {
@@ -23,7 +25,7 @@ pub struct BatchManager {
 }
 
 impl BatchManager {
-    pub fn start(&self, app: AppHandle, items: Vec<QueueItem>) -> String {
+    pub fn start(&self, app: AppHandle, items: Vec<QueueItem>, parallelism: usize) -> String {
         let batch_id = Uuid::new_v4().to_string();
         let cancellation = Arc::new(AtomicBool::new(false));
         self.batches
@@ -34,7 +36,7 @@ impl BatchManager {
         let manager = self.clone();
         let task_batch_id = batch_id.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            run_batch(&app, &task_batch_id, items, &cancellation);
+            run_batch(&app, &task_batch_id, items, parallelism, &cancellation);
             manager
                 .batches
                 .lock()
@@ -61,13 +63,19 @@ impl BatchManager {
     }
 }
 
-fn run_batch(app: &AppHandle, batch_id: &str, items: Vec<QueueItem>, cancellation: &AtomicBool) {
+fn run_batch(
+    app: &AppHandle,
+    batch_id: &str,
+    items: Vec<QueueItem>,
+    parallelism: usize,
+    cancellation: &AtomicBool,
+) {
     let total = items.len();
     let items = Arc::new(Mutex::new(items));
     let next_index = AtomicUsize::new(0);
 
     thread::scope(|scope| {
-        for _ in 0..parallelism_for(total) {
+        for _ in 0..parallelism_for(total, parallelism) {
             let items = Arc::clone(&items);
             let next_index = &next_index;
             scope.spawn(move || {
@@ -208,6 +216,12 @@ fn update_item(
         let item = &mut items[index];
         item.status = status;
         item.message = message;
+        item.error_code = match &item.status {
+            ItemStatus::Failed => Some(ErrorCode::ConversionFailed),
+            ItemStatus::Skipped => Some(ErrorCode::OutputExists),
+            ItemStatus::Cancelled => Some(ErrorCode::Cancelled),
+            _ => None,
+        };
         if let Some(input_bytes) = input_bytes {
             item.input_bytes = Some(input_bytes);
         }
@@ -230,11 +244,9 @@ fn emit_snapshot(
     emit(app, batch_id, item, &snapshot, finished);
 }
 
-fn parallelism_for(item_count: usize) -> usize {
-    thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(1)
-        .min(MAX_PARALLEL_CONVERSIONS)
+fn parallelism_for(item_count: usize, requested: usize) -> usize {
+    requested
+        .clamp(1, MAX_PARALLEL_CONVERSIONS)
         .min(item_count.max(1))
 }
 
@@ -262,10 +274,11 @@ mod tests {
 
     #[test]
     fn parallelism_is_bounded_by_the_queue_and_worker_limit() {
-        assert_eq!(parallelism_for(0), 1);
-        assert_eq!(parallelism_for(1), 1);
-        assert!(parallelism_for(2) <= 2);
-        assert!(parallelism_for(100) <= MAX_PARALLEL_CONVERSIONS);
-        assert!(parallelism_for(100) >= 1);
+        assert_eq!(parallelism_for(0, 4), 1);
+        assert_eq!(parallelism_for(1, 4), 1);
+        assert_eq!(parallelism_for(2, 4), 2);
+        assert_eq!(parallelism_for(100, 4), 4);
+        assert_eq!(parallelism_for(100, 0), 1);
+        assert_eq!(parallelism_for(100, usize::MAX), MAX_PARALLEL_CONVERSIONS);
     }
 }

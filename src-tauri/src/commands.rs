@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::batch::BatchManager;
+use crate::batch::{BatchManager, MAX_PARALLEL_CONVERSIONS};
 
 #[tauri::command]
 pub async fn pick_files(app: AppHandle) -> Vec<String> {
@@ -54,16 +54,22 @@ pub fn collect_inputs(
     )
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn start_conversion(
     app: AppHandle,
     manager: State<'_, BatchManager>,
     items: Vec<QueueItem>,
+    parallelism: usize,
 ) -> Result<String, String> {
     if items.is_empty() {
         return Err("No conversion items were supplied".into());
     }
-    Ok(manager.start(app, items))
+    if !(1..=MAX_PARALLEL_CONVERSIONS).contains(&parallelism) {
+        return Err(format!(
+            "Parallelism must be between 1 and {MAX_PARALLEL_CONVERSIONS}"
+        ));
+    }
+    Ok(manager.start(app, items, parallelism))
 }
 
 #[tauri::command(rename_all = "camelCase")]

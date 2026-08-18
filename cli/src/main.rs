@@ -13,7 +13,7 @@ use std::{
 use clap::{Parser, ValueEnum};
 use font_converter_core::{converter, scanner};
 use font_converter_shared::{
-    BatchSummary, FolderConversionMode, ItemStatus, QueueItem, ScanWarning,
+    BatchSummary, ErrorCode, FolderConversionMode, ItemStatus, QueueItem, ScanWarning,
 };
 use serde::Serialize;
 
@@ -21,6 +21,8 @@ const EXIT_SUCCESS: i32 = 0;
 const EXIT_CONVERSION_FAILED: i32 = 1;
 const EXIT_USAGE_OR_NO_INPUT: i32 = 2;
 const EXIT_INTERRUPTED: i32 = 130;
+const REPORT_FORMAT_VERSION: u32 = 1;
+const MAX_JOBS: usize = 32;
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 enum Mode {
@@ -63,7 +65,7 @@ impl From<ExistingPolicy> for scanner::ExistingOutputPolicy {
     about = "Convert TTF, OTF, and WOFF2 fonts without a graphical interface"
 )]
 struct Args {
-    /// Put generated files in this existing directory, preserving subdirectories.
+    /// Put generated files in this directory, creating it when needed.
     #[arg(short = 'o', long = "output-dir", value_name = "DIR")]
     output_directory: Option<PathBuf>,
 
@@ -79,10 +81,6 @@ struct Args {
     #[arg(long)]
     dry_run: bool,
 
-    /// Treat scan warnings and skipped items as failures.
-    #[arg(long)]
-    strict: bool,
-
     /// Number of conversions to run concurrently.
     #[arg(
         short = 'j',
@@ -97,10 +95,6 @@ struct Args {
     #[arg(long)]
     json: bool,
 
-    /// Suppress human-readable progress output.
-    #[arg(short, long)]
-    quiet: bool,
-
     /// Font files or directories to scan recursively.
     #[arg(value_name = "PATH", required = true)]
     paths: Vec<PathBuf>,
@@ -109,6 +103,7 @@ struct Args {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Report {
+    format_version: u32,
     items: Vec<QueueItem>,
     warnings: Vec<ScanWarning>,
     summary: BatchSummary,
@@ -132,8 +127,8 @@ fn parse_jobs(value: &str) -> Result<usize, String> {
     let jobs = value
         .parse::<usize>()
         .map_err(|_| "jobs must be a positive integer".to_string())?;
-    if !(1..=256).contains(&jobs) {
-        Err("jobs must be between 1 and 256".into())
+    if !(1..=MAX_JOBS).contains(&jobs) {
+        Err(format!("jobs must be between 1 and {MAX_JOBS}"))
     } else {
         Ok(jobs)
     }
@@ -178,7 +173,7 @@ fn run() -> Result<i32, String> {
     }
 
     if args.dry_run {
-        print_dry_run(&scan.items, args.json, args.quiet);
+        print_dry_run(&scan.items, args.json);
     } else {
         execute_conversions(
             &mut scan.items,
@@ -186,7 +181,6 @@ fn run() -> Result<i32, String> {
             args.existing == ExistingPolicy::Overwrite,
             Arc::clone(&interrupted),
             args.json,
-            args.quiet,
         );
     }
 
@@ -196,6 +190,7 @@ fn run() -> Result<i32, String> {
     }
 
     let report = Report {
+        format_version: REPORT_FORMAT_VERSION,
         summary: BatchSummary::from_items(&scan.items),
         items: scan.items,
         warnings: scan.warnings,
@@ -203,16 +198,14 @@ fn run() -> Result<i32, String> {
         dry_run: args.dry_run,
     };
 
-    print_report(&report, args.json, args.quiet)?;
+    print_report(&report, args.json)?;
 
     if was_interrupted {
         Ok(EXIT_INTERRUPTED)
-    } else if report.summary.failed > 0
-        || (args.strict && (!report.warnings.is_empty() || report.summary.skipped > 0))
-    {
-        Ok(EXIT_CONVERSION_FAILED)
     } else if report.items.is_empty() {
         Ok(EXIT_USAGE_OR_NO_INPUT)
+    } else if report.summary.failed > 0 || !report.warnings.is_empty() {
+        Ok(EXIT_CONVERSION_FAILED)
     } else {
         Ok(EXIT_SUCCESS)
     }
@@ -224,13 +217,12 @@ fn execute_conversions(
     overwrite: bool,
     interrupted: Arc<AtomicBool>,
     json: bool,
-    quiet: bool,
 ) {
     for item in items
         .iter()
         .filter(|item| item.status != ItemStatus::Queued)
     {
-        if !json && !quiet {
+        if !json {
             print_status(item, item.message.as_deref().unwrap_or("skipped"));
         }
     }
@@ -287,7 +279,7 @@ fn execute_conversions(
         for event in receiver {
             match event {
                 WorkerEvent::Started(index) => {
-                    if !json && !quiet {
+                    if !json {
                         println!(
                             "Converting {} -> {}",
                             items[index].input_path, items[index].output_path
@@ -295,7 +287,7 @@ fn execute_conversions(
                     }
                 }
                 WorkerEvent::Finished(index, item) => {
-                    if !json && !quiet {
+                    if !json {
                         print_finished(&item);
                     }
                     items[index] = item;
@@ -308,17 +300,34 @@ fn execute_conversions(
 fn convert_item(item: &mut QueueItem, overwrite: bool) {
     let input = Path::new(&item.input_path);
     let output = Path::new(&item.output_path);
+    if let Err(error) = fs::metadata(input) {
+        let code = if error.kind() == std::io::ErrorKind::NotFound {
+            ErrorCode::InputNotFound
+        } else {
+            ErrorCode::InputUnreadable
+        };
+        set_failed(item, code, format!("Cannot access input font: {error}"));
+        return;
+    }
     let result = match scanner::conversion_for(input) {
         Ok((conversion, expected_output))
             if conversion == item.conversion
                 && expected_output.file_name() == output.file_name() =>
         {
             let Some(parent) = output.parent() else {
-                set_failed(item, "Output path has no parent directory".into());
+                set_failed(
+                    item,
+                    ErrorCode::OutputUnwritable,
+                    "Output path has no parent directory".into(),
+                );
                 return;
             };
             if let Err(error) = fs::create_dir_all(parent) {
-                set_failed(item, format!("Cannot create output directory: {error}"));
+                set_failed(
+                    item,
+                    ErrorCode::OutputUnwritable,
+                    format!("Cannot create output directory: {error}"),
+                );
                 return;
             }
             converter::convert_with_overwrite(input, output, conversion, overwrite)
@@ -333,19 +342,34 @@ fn convert_item(item: &mut QueueItem, overwrite: bool) {
             item.status = ItemStatus::Succeeded;
             item.input_bytes = Some(converted.input_bytes);
             item.output_bytes = Some(converted.output_bytes);
+            item.error_code = None;
             item.message = None;
         }
         Err(converter::ConversionError::AlreadyExists) => {
             item.status = ItemStatus::Skipped;
             item.output_bytes = fs::metadata(output).ok().map(|metadata| metadata.len());
+            item.error_code = Some(ErrorCode::OutputExists);
             item.message = Some("Output file already exists".into());
         }
-        Err(converter::ConversionError::Failed(message)) => set_failed(item, message),
+        Err(converter::ConversionError::Failed(message)) => {
+            let code = if message.contains("256 MB safety limit") {
+                ErrorCode::InputTooLarge
+            } else if message.contains("rejected")
+                || message.contains("valid WOFF2")
+                || message.contains("WOFF2 header")
+            {
+                ErrorCode::InvalidFont
+            } else {
+                ErrorCode::ConversionFailed
+            };
+            set_failed(item, code, message);
+        }
     }
 }
 
-fn set_failed(item: &mut QueueItem, message: String) {
+fn set_failed(item: &mut QueueItem, error_code: ErrorCode, message: String) {
     item.status = ItemStatus::Failed;
+    item.error_code = Some(error_code);
     item.message = Some(message);
 }
 
@@ -353,13 +377,14 @@ fn cancel_queued_items(items: &mut [QueueItem]) {
     for item in items {
         if matches!(item.status, ItemStatus::Queued | ItemStatus::Running) {
             item.status = ItemStatus::Cancelled;
+            item.error_code = Some(ErrorCode::Cancelled);
             item.message = Some("Cancelled before conversion started".into());
         }
     }
 }
 
-fn print_dry_run(items: &[QueueItem], json: bool, quiet: bool) {
-    if json || quiet {
+fn print_dry_run(items: &[QueueItem], json: bool) {
+    if json {
         return;
     }
     for item in items {
@@ -382,13 +407,13 @@ fn print_finished(item: &QueueItem) {
     }
 }
 
-fn print_report(report: &Report, json: bool, quiet: bool) -> Result<(), String> {
+fn print_report(report: &Report, json: bool) -> Result<(), String> {
     if json {
         println!(
             "{}",
             serde_json::to_string_pretty(report).map_err(|error| error.to_string())?
         );
-    } else if !quiet {
+    } else {
         if report.dry_run {
             println!(
                 "Dry run: {} queued, {} skipped, {} failed",

@@ -53,25 +53,20 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown,${{ matrix.target }}
+          targets: ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           key: release-${{ matrix.target }}
 
-      - name: Install Trunk
-        if: matrix.target != 'aarch64-pc-windows-msvc' && matrix.cli_only != true
-        uses: taiki-e/install-action@v2.85.13
+      - uses: actions/setup-node@v7
         with:
-          tool: trunk
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Trunk on Windows ARM64
-        if: matrix.target == 'aarch64-pc-windows-msvc'
-        run: cargo install --locked trunk
-
-      - name: Install wasm-bindgen CLI on Windows ARM64
-        if: matrix.target == 'aarch64-pc-windows-msvc'
-        run: cargo install --locked wasm-bindgen-cli --version 0.2.126
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
 
       - name: Install Tauri CLI
         if: matrix.cli_only != true

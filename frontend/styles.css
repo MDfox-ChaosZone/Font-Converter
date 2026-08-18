@@ -318,7 +318,7 @@ h1 {
   display: grid;
   min-height: 0;
   flex: 1 1 auto;
-  grid-template-columns: minmax(230px, 0.3fr) minmax(480px, 0.7fr);
+  grid-template-columns: minmax(300px, 0.34fr) minmax(480px, 0.66fr);
   gap: 16px;
 }
 
@@ -522,16 +522,20 @@ h1 {
 
 .picker-actions {
   display: grid;
-  width: min(100%, 220px);
+  width: min(100%, 270px);
   margin: 20px auto 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 8px;
 }
 
+.picker-actions .button {
+  white-space: nowrap;
+}
+
 .output-destination {
   display: flex;
-  width: min(100%, 220px);
+  width: min(100%, 270px);
   min-height: 52px;
   margin: 14px auto 0;
   padding: 9px 10px;
@@ -875,6 +879,52 @@ h1 {
   gap: 6px;
 }
 
+.queue-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.parallelism-control {
+  display: flex;
+  min-height: 34px;
+  padding: 3px 4px 3px 9px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.parallelism-control input {
+  width: 50px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  font: inherit;
+  text-align: center;
+}
+
+.parallelism-control input:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.parallelism-control input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .queue-notices {
   flex: 0 0 auto;
 }
@@ -969,6 +1019,11 @@ h1 {
   overflow: visible;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.actions-heading {
+  padding-right: 0;
+  text-align: right;
 }
 
 .column-resizer {
@@ -1233,6 +1288,11 @@ h1 {
 
   .queue-actions {
     width: 100%;
+  }
+
+  .queue-controls {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .queue-actions .button {

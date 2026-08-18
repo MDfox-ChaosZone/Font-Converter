@@ -9,6 +9,7 @@ use tempfile::Builder;
 
 const BROTLI_QUALITY: i32 = 11;
 const ALLOW_TRANSFORMS: bool = true;
+const MAX_ENCODE_INPUT_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_DECOMPRESSED_BYTES: usize = 128 * 1024 * 1024;
 
 unsafe extern "C" {
@@ -71,6 +72,16 @@ pub fn convert_with_overwrite(
 ) -> Result<ConversionOutput, ConversionError> {
     if output.exists() && !overwrite {
         return Err(ConversionError::AlreadyExists);
+    }
+
+    if matches!(
+        conversion,
+        ConversionKind::TtfToWoff2 | ConversionKind::OtfToWoff2
+    ) && fs::metadata(input).map_err(failed)?.len() > MAX_ENCODE_INPUT_BYTES
+    {
+        return Err(ConversionError::Failed(
+            "Input font exceeds the 256 MB safety limit".into(),
+        ));
     }
 
     let input_data = fs::read(input).map_err(failed)?;
@@ -222,6 +233,24 @@ mod tests {
         ));
         assert!(!output.exists());
         assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn oversized_encode_input_is_rejected_before_reading() {
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory.path().join("huge.ttf");
+        let output = directory.path().join("huge.woff2");
+        fs::File::create(&input)
+            .unwrap()
+            .set_len(MAX_ENCODE_INPUT_BYTES + 1)
+            .unwrap();
+
+        let error = convert(&input, &output, ConversionKind::TtfToWoff2).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Input font exceeds the 256 MB safety limit"
+        );
+        assert!(!output.exists());
     }
 
     #[test]

@@ -50,6 +50,21 @@ pub enum ItemStatus {
     Cancelled,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorCode {
+    InputNotFound,
+    InputUnreadable,
+    InvalidFont,
+    UnsupportedFormat,
+    OutputExists,
+    OutputConflict,
+    OutputUnwritable,
+    InputTooLarge,
+    ConversionFailed,
+    Cancelled,
+}
+
 impl ItemStatus {
     pub fn is_finished(&self) -> bool {
         matches!(
@@ -69,6 +84,7 @@ pub struct QueueItem {
     pub input_bytes: Option<u64>,
     pub output_bytes: Option<u64>,
     pub status: ItemStatus,
+    pub error_code: Option<ErrorCode>,
     pub message: Option<String>,
 }
 
@@ -76,6 +92,7 @@ pub struct QueueItem {
 #[serde(rename_all = "camelCase")]
 pub struct ScanWarning {
     pub path: String,
+    pub error_code: ErrorCode,
     pub message: String,
 }
 
@@ -152,6 +169,7 @@ mod tests {
                 input_bytes: None,
                 output_bytes: None,
                 status,
+                error_code: None,
                 message: None,
             })
             .collect::<Vec<_>>();

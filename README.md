@@ -14,7 +14,7 @@ Cross-platform desktop and command-line font conversion between TTF/OTF and WOFF
 ### Highlights
 
 - Convert TTF/OTF to WOFF2 and decode WOFF2 back to its original TTF or OTF flavor.
-- Process files or entire folders with drag-and-drop, parallel conversion, and selectable output locations.
+- Process files or entire folders with drag-and-drop, selectable output locations, and adjustable parallelism (default: 4).
 - Switch between English and Simplified Chinese, with light, dark, and system themes.
 - Use either the Tauri desktop app or the script-friendly CLI on Windows, Linux, and macOS.
 - Preserve source files by default; overwriting existing output requires explicit opt-in.
@@ -51,14 +51,15 @@ font-converter-cli --dry-run --json ./fonts
 Useful options:
 
 - `--mode <auto|encode|decode>` selects the conversion direction.
-- `--output-dir <DIR>` writes results to an existing directory while preserving relative paths.
+- `--output-dir <DIR>` writes results to that directory, creates it when needed, and preserves relative paths.
 - `--existing <skip|error|overwrite>` controls existing outputs; the default is `skip`.
 - `--jobs <N>` sets parallelism; `--dry-run` previews work; `--json` emits one machine-readable report.
+- JSON reports include a `formatVersion` and stable `errorCode` values for automation.
 - Run `font-converter-cli --help` for the complete, version-specific option list.
 
 ### Build from source
 
-Requirements: Rust stable, Git, a platform C/C++ toolchain, and the GUI prerequisites for [Tauri 2](https://v2.tauri.app/start/prerequisites/).
+Requirements: Rust stable, Node.js 22.12 or newer with npm, Git, a platform C/C++ toolchain, and the GUI prerequisites for [Tauri 2](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
 git clone --recurse-submodules https://github.com/MDfox-ChaosZone/Font-Converter.git
@@ -68,8 +69,7 @@ cd Font-Converter
 cargo build -p font-converter-cli --release
 
 # Desktop app
-rustup target add wasm32-unknown-unknown
-cargo install --locked trunk
+npm ci --prefix frontend
 cargo install --locked tauri-cli
 cargo tauri dev
 ```
@@ -86,7 +86,7 @@ The release CLI is written to `target/release/font-converter-cli` (`.exe` on Win
 
 - `core`: shared conversion engine and Google WOFF2/Brotli native build
 - `cli`: command-line interface
-- `frontend`: Leptos user interface
+- `frontend`: Vue 3 and TypeScript user interface built with Vite
 - `src-tauri`: Tauri desktop shell
 - `shared`: shared types and conversion workflow
 
@@ -103,7 +103,7 @@ Font Converter 是一款跨平台桌面与命令行字体转换工具，支持 T
 ### 主要特性
 
 - 将 TTF/OTF 转为 WOFF2，并根据 WOFF2 中的原始 flavor 自动还原为 TTF 或 OTF。
-- 支持文件和文件夹拖放、并行转换以及自定义输出位置。
+- 支持文件和文件夹拖放、自定义输出位置，以及可调并行数（默认 4）。
 - 支持简体中文与英文，以及浅色、深色和跟随系统主题。
 - 同时提供 Windows、Linux、macOS 桌面应用与适合脚本调用的 CLI。
 - 默认保留源文件；覆盖已有输出必须显式启用。
@@ -140,14 +140,15 @@ font-converter-cli --dry-run --json ./fonts
 常用参数：
 
 - `--mode <auto|encode|decode>` 选择转换方向。
-- `--output-dir <DIR>` 输出到已有目录并保留相对路径。
+- `--output-dir <DIR>` 输出到指定目录、按需自动创建，并保留相对路径。
 - `--existing <skip|error|overwrite>` 控制已有文件；默认值为 `skip`。
 - `--jobs <N>` 设置并行数；`--dry-run` 仅预览；`--json` 输出一份机器可读报告。
+- JSON 报告包含 `formatVersion` 和稳定的 `errorCode`，便于自动化处理。
 - 运行 `font-converter-cli --help` 查看当前版本的完整参数。
 
 ### 从源码构建
 
-需要 Rust stable、Git、平台对应的 C/C++ 工具链，以及 [Tauri 2](https://v2.tauri.app/start/prerequisites/) 的 GUI 构建依赖。
+需要 Rust stable、Node.js 22.12 或更新版本及 npm、Git、平台对应的 C/C++ 工具链，以及 [Tauri 2](https://v2.tauri.app/start/prerequisites/) 的 GUI 构建依赖。
 
 ```bash
 git clone --recurse-submodules https://github.com/MDfox-ChaosZone/Font-Converter.git
@@ -157,8 +158,7 @@ cd Font-Converter
 cargo build -p font-converter-cli --release
 
 # 桌面应用
-rustup target add wasm32-unknown-unknown
-cargo install --locked trunk
+npm ci --prefix frontend
 cargo install --locked tauri-cli
 cargo tauri dev
 ```
@@ -175,7 +175,7 @@ Release 模式的 CLI 位于 `target/release/font-converter-cli`（Windows 为 `
 
 - `core`：共享转换引擎及 Google WOFF2/Brotli 原生构建
 - `cli`：命令行界面
-- `frontend`：Leptos 用户界面
+- `frontend`：使用 Vite 构建的 Vue 3 + TypeScript 用户界面
 - `src-tauri`：Tauri 桌面外壳
 - `shared`：共享类型与转换流程
 
