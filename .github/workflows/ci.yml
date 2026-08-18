@@ -20,7 +20,7 @@ jobs:
           components: clippy,rustfmt
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2.85.9
+      - uses: taiki-e/install-action@v2.85.13
         with:
           tool: trunk
 
@@ -84,7 +84,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - uses: taiki-e/install-action@v2.85.9
+      - uses: taiki-e/install-action@v2.85.13
         with:
           tool: trunk
       - uses: actions/setup-node@v7
