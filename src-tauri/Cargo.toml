@@ -1,0 +1,32 @@
+[package]
+name = "font-converter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "font_converter_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "font-converter"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+font-converter-core.workspace = true
+font-converter-shared.workspace = true
+tauri = { version = "2.11", features = [] }
+tauri-plugin-dialog = "2.7"
+tokio = { version = "1", features = ["sync"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+# Production builds serve the bundled frontend through Tauri's asset protocol.
+# The Tauri CLI enables this feature automatically for `tauri build`.
+custom-protocol = ["tauri/custom-protocol"]

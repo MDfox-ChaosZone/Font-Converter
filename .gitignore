@@ -1,0 +1,9 @@
+/target
+/frontend/dist
+/frontend/node_modules
+/src-tauri/gen/schemas
+/.idea
+/.vscode
+*.log
+*.pdb
+.DS_Store
