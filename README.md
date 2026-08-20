@@ -81,29 +81,6 @@ The release CLI is written to `target/release/font-converter-cli` (`.exe` on Win
 
 Font Converter is licensed under the [MIT License](LICENSE). Third-party license notices are listed in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
 
-### Support and sponsorship
-
-If Font Converter is useful to you, you are welcome to leave a tip for the project. Any sponsorship is greatly appreciated.
-
-#### WeChat Pay and Alipay
-
-<p align="center">
-  <img src="assets/donate/wechat-pay.png" alt="WeChat Pay QR code" width="32%">
-  <img src="assets/donate/alipay.jpg" alt="Alipay QR code" width="32%">
-</p>
-
-#### USDT
-
-- Plasma: `0x742fa2ac27c5d3ff0c337b93ad688d39a77da4c8`
-- Aptos: `0xb3ba1611884cc1c2d2d970d081f6c24089d363817a772bddab52a0a278c6ffef`
-
-<p align="center">
-  <img src="assets/donate/usdt-plasma.jpg" alt="USDT deposit QR code on Plasma" width="32%">
-  <img src="assets/donate/usdt-aptos.jpg" alt="USDT deposit QR code on Aptos" width="32%">
-</p>
-
-When transferring USDT,please verify both the network and wallet address. 
-
 ---
 
 ## 简介
@@ -180,25 +157,22 @@ Release 模式的 CLI 位于 `target/release/font-converter-cli`（Windows 为 `
 
 Font Converter 使用 [MIT License](LICENSE)。第三方许可证声明见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES)。
 
-### 支持与赞助
+## 支持与赞助
 
-如果 Font Converter 对你有帮助，欢迎给这个项目点心。任何赞助都不胜感激。
+如果这个项目对你有帮助，欢迎给这个项目点心。任何赞助都不胜感激哦。
 
-#### 微信支付与支付宝
+### 微信支付与支付宝
 
-<p align="center">
-  <img src="assets/donate/wechat-pay.png" alt="微信支付收款码" width="32%">
-  <img src="assets/donate/alipay.jpg" alt="支付宝收款码" width="32%">
-</p>
-
-#### USDT
+| 微信支付 | 支付宝 |
+| :---: | :---: |
+| ![微信支付收款码](assets/donate/wechat-pay.png) | ![支付宝收款码](assets/donate/alipay.jpg) |
+### USDT
 
 - Plasma：`0x742fa2ac27c5d3ff0c337b93ad688d39a77da4c8`
 - Aptos：`0xb3ba1611884cc1c2d2d970d081f6c24089d363817a772bddab52a0a278c6ffef`
 
-<p align="center">
-  <img src="assets/donate/usdt-plasma.jpg" alt="Plasma 网络 USDT 充值二维码" width="32%">
-  <img src="assets/donate/usdt-aptos.jpg" alt="Aptos 网络 USDT 充值二维码" width="32%">
-</p>
+| Plasma | Aptos |
+| :---: | :---: |
+| ![Plasma 网络 USDT 充值二维码](assets/donate/usdt-plasma.jpg) | ![Aptos 网络 USDT 充值二维码](assets/donate/usdt-aptos.jpg) |
 
 转账 USDT 时，请同时核对网络和钱包地址。
