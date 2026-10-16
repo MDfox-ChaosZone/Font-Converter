@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = ["engine", "desktop", "cli"]
+default-members = ["engine", "cli", "desktop"]
+
+[workspace.package]
+version = "2.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/MDfox-ChaosZone/Font-Converter"
+
+[workspace.dependencies]
+font-converter-engine = { path = "engine" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Size-first for the GUI and its dependencies; the codec engine (and the C++
+# WOFF2/Brotli it builds) stays at full speed.
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[profile.release.package.font-converter-engine]
+opt-level = 3

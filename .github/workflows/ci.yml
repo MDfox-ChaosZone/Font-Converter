@@ -1,0 +1,51 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: native-${{ matrix.target }}
+      - name: Install Linux build libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang pkg-config libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libvulkan-dev
+      - run: cargo fmt --all -- --check
+      - run: cargo test --locked -p font-converter-engine -p font-converter-cli
+      - run: cargo test --locked -p font-converter --bin font-converter
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Check CLI report
+        shell: bash
+        run: |
+          EXE="target/${{ matrix.target }}/release/font-converter-cli"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then EXE="$EXE.exe"; fi
+          "$EXE" --json --dry-run tests/fixtures/Abel-Regular.ttf

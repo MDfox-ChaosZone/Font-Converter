@@ -1,0 +1,86 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Check tag matches workspace version
+        shell: bash
+        run: |
+          python -c 'import os,tomllib; v=tomllib.load(open("Cargo.toml","rb"))["workspace"]["package"]["version"]; assert os.environ["GITHUB_REF_NAME"] == "v"+v'
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang pkg-config libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libvulkan-dev rpm
+          ARCH=x86_64
+          if [[ '${{ matrix.target }}' == aarch64* ]]; then ARCH=aarch64; fi
+          curl --fail --location "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-$ARCH.AppImage" -o "$RUNNER_TEMP/appimagetool"
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
+      - run: cargo test --locked -p font-converter-engine -p font-converter-cli
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Package native artifacts
+        run: python packaging/package.py --target ${{ matrix.target }} --skip-build
+      - name: Verify packaged Windows CLI
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem 'dist/${{ matrix.target }}/*-cli.zip' | Select-Object -First 1
+          Expand-Archive -LiteralPath $package.FullName -DestinationPath "$env:RUNNER_TEMP/font-converter-cli"
+          & "$env:RUNNER_TEMP/font-converter-cli/font-converter-cli.exe" --json --dry-run tests/fixtures/Abel-Regular.ttf
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged CLI smoke test failed' }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}
+          path: dist/${{ matrix.target }}/*
+  draft:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --draft --title "Font Converter $TAG" --notes "Native GPUI release. See README for platform requirements and CLI v2."
+          fi
+          find artifacts -type f ! -name SHA256SUMS ! -name build.json -print0 | xargs -0 gh release upload "$TAG" --clobber

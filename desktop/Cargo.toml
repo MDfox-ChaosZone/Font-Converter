@@ -1,0 +1,30 @@
+[package]
+name = "font-converter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+gpui = { package = "gpui-pre", version = "=0.3.9" }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.9", features = [
+    "font-kit",
+    "x11",
+    "wayland",
+    "runtime_shaders",
+] }
+font-converter-engine.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+directories = "6"
+sys-locale = "0.3"
+tempfile = "3"
+
+[build-dependencies]
+winresource = "0.1"
+
+[dev-dependencies]
+gpui = { package = "gpui-pre", version = "=0.3.9", features = ["test-support"] }
+
+[[bin]]
+name = "font-converter"
+path = "src/main.rs"

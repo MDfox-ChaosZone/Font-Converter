@@ -1,0 +1,75 @@
+Third-Party Licenses
+====================
+
+Font Converter includes source code from Google WOFF2 and Google Brotli.
+Their copyright notices and license terms follow.
+
+
+Google WOFF2
+------------
+
+Source: https://github.com/google/woff2
+
+Copyright (c) 2013-2017 by the WOFF2 Authors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
+Google Brotli
+-------------
+
+Source: https://github.com/google/brotli
+
+Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+GPUI snapshot 0.3.9 (published as gpui-pre)
+--------------------------------------------
+Source: https://github.com/zed-industries/zed
+Licensed under Apache-2.0. Full license: licenses/GPUI-APACHE-2.0.txt.
+GPUI copyright Zed Industries contributors.
+
+Test fonts (not required by the application runtime)
+--------------------------------------------------
+Abel: Google Fonts commit 7ff85c87f93ea6cca5f41c69f2e4edcb90240f26.
+Source Code Pro: Adobe commit 803b7e23ec97ae58b6232ea76519a76d428ba268.
+SIL Open Font License 1.1: tests/fixtures/Abel-OFL.txt and SourceCodePro-LICENSE.txt.
+Other Rust dependencies and exact versions are recorded in Cargo.lock.
+
+Cargo dependency license declarations and published license/notice texts are
+collected in licenses/Cargo-dependencies.txt, including platform-specific and
+optional packages. Regenerate with python packaging/collect_licenses.py after
+updating Cargo.lock. Google WOFF2/Brotli source license notices appear above.

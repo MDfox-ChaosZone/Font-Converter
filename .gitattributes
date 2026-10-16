@@ -1,0 +1,5 @@
+* text=auto
+# Preserve upstream license text verbatim, including original whitespace.
+licenses/*.txt whitespace=-trailing-space
+tests/fixtures/*-OFL.txt whitespace=-trailing-space
+tests/fixtures/*-LICENSE.txt whitespace=-trailing-space
