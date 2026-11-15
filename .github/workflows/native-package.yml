@@ -52,7 +52,7 @@ jobs:
             ditto -x -k ./*-app.zip "$RUNNER_TEMP/from-zip"
             codesign --verify --strict "$RUNNER_TEMP/from-zip/Font Converter.app"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
           path: dist/${{ matrix.target }}/*
@@ -110,7 +110,7 @@ jobs:
       - name: Native mid-batch cancellation
         if: '!cancelled()'
         run: bash qa/run.sh cancel
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: '!cancelled()'
         with:
           name: diagnostics-${{ matrix.target }}
@@ -140,7 +140,7 @@ jobs:
           sudo apt-get install -y sway grim xdotool x11-utils xvfb xauth python3-gi gir1.2-gtk-3.0 mesa-vulkan-drivers libxkbcommon-x11-0
       - name: Native Wayland drag, mixed batch and cancellation from AppImage
         run: xvfb-run -a -s "-screen 0 1600x1000x24" dbus-run-session -- bash qa/wayland.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: '!cancelled()'
         with:
           name: wayland-diagnostics
