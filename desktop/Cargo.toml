@@ -2,11 +2,13 @@
 name = "font-converter"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
 license.workspace = true
 
 [dependencies]
-gpui = { package = "gpui-pre", version = "=0.3.9" }
-gpui_platform = { package = "gpui-pre-platform", version = "=0.3.9", features = [
+gpui = { package = "gpui-pre", version = "=0.3.12" }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.12", features = [
     "font-kit",
     "x11",
     "wayland",
@@ -23,7 +25,7 @@ tempfile = "3"
 winresource = "0.1"
 
 [dev-dependencies]
-gpui = { package = "gpui-pre", version = "=0.3.9", features = ["test-support"] }
+gpui = { package = "gpui-pre", version = "=0.3.12", features = ["test-support"] }
 
 [[bin]]
 name = "font-converter"

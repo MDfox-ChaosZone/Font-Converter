@@ -39,7 +39,7 @@ JSON stdout contains one final report with `formatVersion: 2`, `options`, `items
 
 ### Build and test
 
-Requirements: Rust stable (locally validated with Rust 1.97.1), Git submodules and a C/C++ compiler. Windows: MSVC and Windows SDK. macOS: Xcode command-line tools, macOS 15+. Linux: Ubuntu 24.04 libraries below, X11/Wayland graphical session and a working Vulkan driver.
+Requirements: Rust stable (locally validated with Rust 1.99.1), Git submodules and a C/C++ compiler. Windows: MSVC and Windows SDK. macOS: Xcode command-line tools, macOS 15+. Linux: Ubuntu 24.04 libraries below, X11/Wayland graphical session and a working Vulkan driver.
 
 ```sh
 git submodule update --init --recursive
@@ -68,7 +68,7 @@ python packaging/package.py --target x86_64-pc-windows-msvc --skip-build --binar
 
 Output: `dist/<target>`, with checksums and build metadata. Windows x64/ARM64: portable EXE/ZIP. Linux x64/ARM64: AppImage, DEB, RPM (Ubuntu 24.04 baseline; system libraries and GPU drivers required). macOS Apple Silicon: APP ZIP/DMG. Each target has a separate CLI archive. Linux packaging needs `dpkg-deb`, `rpmbuild` and `APPIMAGETOOL` pointing to appimagetool 1.9.1. macOS uses `ditto`, `codesign` and `hdiutil`; optional `APPLE_SIGNING_IDENTITY` and `APPLE_NOTARY_PROFILE` enable Developer ID signing and notarization. Without credentials macOS uses an ad hoc signature and is not notarized. Windows packages are unsigned unless signed separately.
 
-CI covers all five targets. Tag-triggered automation builds a draft release after successful builds. Local verification is Windows x64; other platforms require their own CI and runtime evidence. See [VALIDATION.md](VALIDATION.md).
+CI covers all five targets. Tag-triggered automation builds a draft release after successful builds. Windows x64 has local verification. Ubuntu x64 and macOS Apple Silicon have package, native file-drop, batch conversion and cancellation checks on hosted runners. See [VALIDATION.md](VALIDATION.md).
 
 ### Architecture and licenses
 
@@ -78,7 +78,7 @@ CI covers all five targets. Tag-triggered automation builds a draft release afte
 - `vendor`: pinned Google WOFF2 and Brotli submodules.
 - `packaging`: independent native packaging.
 
-Application: [MIT](LICENSE). Third-party notices: [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES); additional full licenses in `licenses/`. The desktop depends directly on the published GPUI snapshot (`gpui-pre` / `gpui-pre-platform` 0.3.9, pinned).
+Application: [MIT](LICENSE). Third-party notices: [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES); additional full licenses in `licenses/`. The desktop depends directly on the published GPUI snapshot (`gpui-pre` / `gpui-pre-platform` 0.3.12, pinned).
 
 ## 简体中文
 
@@ -108,7 +108,7 @@ JSON 报告为 `formatVersion: 2`，包含选项、任务、警告、统计、�
 
 打包脚本需要 Python 3.11+，应用运行不依赖 Python。Windows 提供便携 EXE/ZIP；Linux x64/ARM64 提供 AppImage、DEB、RPM；macOS Apple Silicon 提供 APP/DMG，各平台独立提供 CLI 归档、校验值和构建元数据。Linux 仍需系统库和 GPU 驱动；macOS 未配置签名/公证时仅使用临时签名，Windows 默认未签名。
 
-已配置五个平台的 CI 和标签触发的草稿发布流程。本地验证以 Windows x64 为准，其他平台需各自取得构建与运行证据。实际结果见 [VALIDATION.md](VALIDATION.md)。源码使用 [MIT](LICENSE)，第三方声明见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES)。
+已配置五个平台的 CI 和标签触发的草稿发布流程。Windows x64 已在本地验证，Ubuntu x64 和 macOS Apple Silicon 已在托管运行器上验证打包、系统拖放、批量转换和取消。实际结果见 [VALIDATION.md](VALIDATION.md)。源码使用 [MIT](LICENSE)，第三方声明见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES)。
 
 ## 支持与赞助
 
