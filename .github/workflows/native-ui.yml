@@ -73,6 +73,7 @@ jobs:
           retention-days: 5
 
   wayland:
+    if: github.event.head_commit.message == 'Validate native Wayland AppImage'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

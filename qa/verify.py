@@ -105,7 +105,7 @@ def click(proc,wid):
     else:
         xd("windowactivate","--sync",wid)
         x,y,w,h=geometry(wid)
-        xd("mousemove",x+w-65,y+h-32,"click",1)
+        xd("mousemove","--window",wid,w-65,h-32,"click",1)
 
 def gui(mode):
     folder=directory(mode)
