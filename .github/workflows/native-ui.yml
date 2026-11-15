@@ -1,0 +1,101 @@
+name: Packaged GUI interactions
+on:
+  push:
+    branches: [codex/verify-gpui-native-20261115]
+    paths: ['qa/**', '.github/workflows/native-ui.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  interact:
+    if: github.event.head_commit.message != 'Validate native Wayland AppImage'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - runner: macos-15
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch packaged binaries of the verified GPUI source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: '43695088914'
+          TARGET: ${{ matrix.target }}
+        run: |
+          for i in $(seq 1 70); do
+            if gh run download "$SOURCE_RUN" -n "$TARGET" -D "$RUNNER_TEMP/packages"; then break; fi
+            sleep 15
+          done
+          cd "$RUNNER_TEMP/packages"
+          shasum -a 256 -c SHA256SUMS
+          tar xzf ./*-cli.tar.gz
+          echo "CLI=$PWD/font-converter-cli/font-converter-cli" >> "$GITHUB_ENV"
+      - name: Packaged CLI batch and interrupt
+        run: python3 qa/verify.py cli "$CLI"
+      - if: runner.os == 'Linux' && !cancelled()
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth openbox xdotool python3-gi gir1.2-gtk-3.0 imagemagick libxkbcommon-x11-0 mesa-vulkan-drivers
+          cd "$RUNNER_TEMP/packages"
+          sudo dpkg -i ./*.deb || sudo apt-get -fy install
+          echo "GUI=$(command -v font-converter)" >> "$GITHUB_ENV"
+      - if: runner.os == 'macOS' && !cancelled()
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-workflows"
+          clang -fobjc-arc -framework Cocoa -framework ApplicationServices -framework Metal qa/mac.m -o "$RUNNER_TEMP/native-workflows/driver"
+          m="$RUNNER_TEMP/font-volume"
+          hdiutil attach -readonly -nobrowse -mountpoint "$m" "$RUNNER_TEMP"/packages/*.dmg
+          ditto "$m/Font Converter.app" "$RUNNER_TEMP/Font Converter.app"
+          hdiutil detach "$m"
+          echo "GUI=$RUNNER_TEMP/Font Converter.app/Contents/MacOS/font-converter" >> "$GITHUB_ENV"
+      - name: Native OS file drop (no startup paths)
+        if: '!cancelled()'
+        run: bash qa/run.sh drop
+      - name: Native mixed batch (startup paths)
+        if: '!cancelled()'
+        run: bash qa/run.sh batch
+      - name: Native mid-batch cancellation
+        if: '!cancelled()'
+        run: bash qa/run.sh cancel
+      - uses: actions/upload-artifact@v4
+        if: '!cancelled()'
+        with:
+          name: diagnostics-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/native-workflows/*.png
+            ${{ runner.temp }}/native-workflows/*.log
+          if-no-files-found: ignore
+          retention-days: 5
+
+  wayland:
+    if: github.event.head_commit.message == 'Validate native Wayland AppImage'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 43695088914 -n x86_64-unknown-linux-gnu -D "$RUNNER_TEMP/packages"
+          cd "$RUNNER_TEMP/packages"
+          shasum -a 256 -c SHA256SUMS
+          chmod +x ./*.AppImage
+          ./*.AppImage --appimage-extract >/dev/null
+          echo "GUI=$PWD/squashfs-root/AppRun" >> "$GITHUB_ENV"
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y sway grim xdotool x11-utils xvfb xauth python3-gi gir1.2-gtk-3.0 mesa-vulkan-drivers libxkbcommon-x11-0
+      - name: Native Wayland drag, mixed batch and cancellation from AppImage
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" dbus-run-session -- bash qa/wayland.sh
+      - uses: actions/upload-artifact@v4
+        if: '!cancelled()'
+        with:
+          name: wayland-diagnostics
+          path: |
+            ${{ runner.temp }}/native-workflows/*.log
+            ${{ runner.temp }}/native-workflows/*.png
+          retention-days: 5

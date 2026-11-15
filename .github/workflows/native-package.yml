@@ -1,0 +1,62 @@
+name: Native package validation
+on:
+  push:
+    branches: [codex/verify-gpui-native-20261115]
+    paths-ignore: ['qa/**', '.github/workflows/native-ui.yml']
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - runner: macos-15
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang pkg-config libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libvulkan-dev libx11-dev libxi-dev libxcb-xkb-dev rpm
+          curl -fLsS --retry 3 https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage -o "$RUNNER_TEMP/appimagetool"
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
+      - run: cargo build --release --locked
+      - run: python3 packaging/package.py --target "$TARGET" --binaries-dir target/release --skip-build
+      - name: Inspect native packages
+        shell: bash
+        run: |
+          cd "dist/$TARGET"
+          shasum -a 256 -c SHA256SUMS
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            dpkg-deb -I ./*.deb
+            rpm -qip ./*.rpm
+            ./*.AppImage --appimage-extract >/dev/null
+            test -x squashfs-root/AppRun
+            mv squashfs-root "$RUNNER_TEMP/appimage"
+          else
+            hdiutil verify ./*.dmg
+            m="$RUNNER_TEMP/font-volume"
+            hdiutil attach -readonly -nobrowse -mountpoint "$m" ./*.dmg
+            codesign --verify --deep --strict "$m/Font Converter.app"
+            hdiutil detach "$m"
+            ditto -x -k ./*-app.zip "$RUNNER_TEMP/from-zip"
+            codesign --verify --strict "$RUNNER_TEMP/from-zip/Font Converter.app"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/${{ matrix.target }}/*
+          retention-days: 5
+      - run: cargo test --locked -p font-converter-engine -p font-converter-cli -p font-converter
