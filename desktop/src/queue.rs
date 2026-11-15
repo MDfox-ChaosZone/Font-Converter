@@ -36,7 +36,7 @@ pub fn path_text(path: &std::path::Path) -> String {
         if let Some(unc) = text.strip_prefix(r"\\?\UNC\") {
             return format!(r"\\{unc}");
         }
-        text.strip_prefix(r"\\?\").unwrap_or(&text).to_owned()
+        text.trim_prefix(r"\\?\").to_owned()
     } else {
         text.into_owned()
     }

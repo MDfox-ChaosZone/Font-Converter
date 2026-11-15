@@ -91,7 +91,7 @@ impl Workbench {
                                 |button, tip| button.tooltip(tip),
                             )
                             .on_click(cx.listener(|this, _, _, cx| {
-                                this.menu_open = !this.menu_open;
+                                this.menu_open.toggle();
                                 cx.notify();
                             })),
                     )
@@ -318,7 +318,7 @@ impl Workbench {
                                 .gap_2()
                                 .cursor_pointer()
                                 .on_click(cx.listener(|this, _, _, cx| {
-                                    this.warnings_open = !this.warnings_open;
+                                    this.warnings_open.toggle();
                                     cx.notify();
                                 }))
                                 .child(
