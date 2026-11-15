@@ -149,7 +149,6 @@ def gui(mode):
                 except sp.TimeoutExpired:proc.kill();proc.wait()
             log.flush()
             print((temp/(mode+".log")).read_text(errors="replace")[-2500:],flush=True)
-if sys.argv[1]=="cli":
-    run_cli()
-else:
-    gui(sys.argv[1])
+if __name__ == "__main__":
+    if sys.argv[1]=="cli": run_cli()
+    else: gui(sys.argv[1])

@@ -8,6 +8,7 @@ permissions:
   actions: read
 jobs:
   interact:
+    if: github.event.head_commit.message != 'Validate native Wayland AppImage'
     strategy:
       fail-fast: false
       matrix:
@@ -69,4 +70,29 @@ jobs:
             ${{ runner.temp }}/native-workflows/*.png
             ${{ runner.temp }}/native-workflows/*.log
           if-no-files-found: ignore
+          retention-days: 5
+
+  wayland:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 43695088914 -n x86_64-unknown-linux-gnu -D "$RUNNER_TEMP/packages"
+          cd "$RUNNER_TEMP/packages"
+          shasum -a 256 -c SHA256SUMS
+          chmod +x ./*.AppImage
+          ./*.AppImage --appimage-extract >/dev/null
+          echo "GUI=$PWD/squashfs-root/AppRun" >> "$GITHUB_ENV"
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y sway xvfb xauth python3-gi gir1.2-gtk-3.0 mesa-vulkan-drivers libxkbcommon-x11-0
+      - name: Native Wayland drag, mixed batch and cancellation from AppImage
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" dbus-run-session -- bash qa/wayland.sh
+      - uses: actions/upload-artifact@v4
+        if: '!cancelled()'
+        with:
+          name: wayland-diagnostics
+          path: ${{ runner.temp }}/native-workflows/*.log
           retention-days: 5
