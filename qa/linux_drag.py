@@ -13,6 +13,7 @@ def provide(widget, context, selection, info, when):
     print("GTK supplied", uris, flush=True)
     selection.set_uris(uris)
 button.connect("drag-data-get", provide)
+button.connect("drag-begin", lambda *_: print("GTK native drag started",flush=True))
 window.add(button)
 window.show_all()
 Gtk.main()

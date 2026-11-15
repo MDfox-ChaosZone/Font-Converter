@@ -1,4 +1,4 @@
-import json, os, subprocess as sp, sys, time
+import json, os, re, subprocess as sp, sys, time
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
 import verify
@@ -14,9 +14,15 @@ def surface(proc):
             found=find(child)
             if found:return found
     return find(json.loads(command("-t","get_tree")))
-def cursor(*args):
-    reply=json.loads(command("seat","seat0","cursor",*args))
-    assert reply[0]["success"],reply
+def cursor(action,*args):
+    env=dict(os.environ, DISPLAY=os.environ["COMPOSITOR_DISPLAY"])
+    listing=sp.check_output(["xwininfo","-root","-tree"],env=env,text=True)
+    width=next(o["rect"]["width"] for o in json.loads(command("-t","get_outputs")) if o["active"])
+    window=re.search(r"^\s*(0x[0-9a-f]+).+?\b"+str(width)+r"x[0-9]+[+-]",listing,re.M)
+    assert window, listing
+    if action=="set": args=["mousemove","--window",window[1],*map(str,args)]
+    else: args=["mousedown" if action=="press" else "mouseup","1"]
+    sp.run(["xdotool",*args],env=env,check=True)
 def click(proc,wid):
     r=surface(proc)
     cursor("set",r["x"]+r["width"]-65,r["y"]+r["height"]-32)
@@ -25,7 +31,10 @@ def drag(proc,wid,paths):
     src=sp.Popen(["/usr/bin/python3","qa/linux_drag.py",*paths])
     try:
         r=verify.wait(lambda:surface(src),10,"Wayland GTK drag source")
+        time.sleep(.8)
+        r=surface(src)
         t=surface(proc)
+        print("Native Wayland source/destination",r,t,flush=True)
         start=(r["x"]+r["width"]//2,r["y"]+r["height"]//2)
         end=(t["x"]+t["width"]//2,t["y"]+t["height"]//2)
         cursor("set",*start)

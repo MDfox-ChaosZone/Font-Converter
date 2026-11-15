@@ -140,7 +140,7 @@ def gui(mode):
         except Exception:
             time.sleep(.3)
             dest=temp/(mode+".png")
-            sp.run(["screencapture","-x",dest] if mac else ["import","-window","root",dest],check=False)
+            sp.run(["screencapture","-x",dest] if mac else (["grim",dest] if os.getenv("GDK_BACKEND")=="wayland" else ["import","-window","root",dest]),check=False)
             raise
         finally:
             if proc.poll() is None:

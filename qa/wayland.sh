@@ -20,6 +20,7 @@ done
 export SWAYSOCK="$(find "$XDG_RUNTIME_DIR" -name 'sway-ipc*.sock' | head -1)"
 export WAYLAND_DISPLAY="$(basename "$(find "$XDG_RUNTIME_DIR" -name 'wayland-*' -type s | head -1)")"
 # Application clients only have the Wayland display; keep Xvfb available to the compositor.
+export COMPOSITOR_DISPLAY=$DISPLAY
 unset DISPLAY
 swaymsg -t get_outputs
 status=0
