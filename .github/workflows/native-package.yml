@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Fetch packaged binaries of the verified GPUI source
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ matrix.target }}
           path: ${{ runner.temp }}/packages
@@ -125,7 +125,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: x86_64-unknown-linux-gnu
           path: ${{ runner.temp }}/packages
