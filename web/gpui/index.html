@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,"><title>Font Converter · GPUI</title><link rel="stylesheet" href="../shared/page.css"></head>
+<body><p id="loading" role="status">Loading GPUI…</p><script type="module">
+import "../shared/browser.js";
+import init from "./gpui.js";
+const loading = document.querySelector("#loading");
+try { await init(); loading.remove(); }
+catch (error) { loading.textContent = "Could not start GPUI: " + error.message; }
+</script></body></html>

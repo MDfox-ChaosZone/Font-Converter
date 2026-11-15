@@ -1,6 +1,6 @@
 # Font Converter
 
-[English](#english) · [简体中文](#简体中文)
+[English](#english) · [简体中文](#简体中文) · [GPUI Web / 网页版](web/README.md)
 
 <p align="center">
   <img src="assets/screenshots/font-converter-gpui-light-en.png" alt="Native GPUI desktop, English light theme" width="90%">
